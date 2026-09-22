@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    /* Maritime Field Operations — Dark Ocean Palette */
+    --bg:        #071524;
+    --surface:   #0d2035;
+    --surface2:  #122840;
+    --border:    #1a3a52;
+    --border2:   #224d6b;
+
+    /* Brand */
+    --teal:      #0d9488;
+    --teal-light:#14b8a6;
+    --sky:       #0891b2;
+    --amber:     #f59e0b;
+    --red:       #ef4444;
+    --green:     #22c55e;
+    --purple:    #8b5cf6;
+
+    /* Text */
+    --text:      #e2e8f0;
+    --text-muted:#64748b;
+    --text-dim:  #94a3b8;
+  }
+
+  html {
+    background-color: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(ellipse 120% 60% at 70% -10%, rgba(13,148,136,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 80% 40% at 10% 90%, rgba(8,145,178,0.04) 0%, transparent 50%);
+    min-height: 100vh;
+  }
+
+  * {
+    border-color: var(--border);
+  }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+}
+
+@layer utilities {
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .card-hover {
+    transition: border-color 150ms, background 150ms;
+  }
+  .card-hover:hover {
+    border-color: var(--border2);
+    background: var(--surface2);
+  }
+  .stat-value {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+  .traffic-green  { background: var(--green); }
+  .traffic-amber  { background: var(--amber); }
+  .traffic-red    { background: var(--red); }
+  .badge {
+    display: inline-flex; align-items: center;
+    padding: 2px 8px; border-radius: 4px;
+    font-size: 0.7rem; font-weight: 600;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    border: 1px solid;
+  }
+  .section-label {
+    font-size: 0.65rem; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .live-pulse {
+    animation: livePulse 2s ease-in-out infinite;
+  }
+  @keyframes livePulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+}
+

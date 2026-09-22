@@ -1,0 +1,7 @@
+{
+  "name": "NDNP MPA-MES",
+  "description": "Marine Protected Area Management & Ecological System — National Designated Natural Park",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "name": "NDNP MPA-MES",
+  "short_name": "NDNP MPA",
+  "description": "National Designated Natural Park — Marine Protected Area Management & Ecological System",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020b14",
+  "theme_color": "#00bcd4",
+  "orientation": "portrait-primary",
+  "lang": "en",
+  "categories": ["environment", "government", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Report Incident",
+      "url": "/report",
+      "description": "Submit an anonymous incident report",
+      "icons": [{"src": "/icons/icon-192.png", "sizes": "192x192"}]
+    },
+    {
+      "name": "Park Map",
+      "url": "/dashboard/maps",
+      "description": "View the NDNP marine park map",
+      "icons": [{"src": "/icons/icon-192.png", "sizes": "192x192"}]
+    }
+  ]
+}
+
