@@ -83,9 +83,21 @@ async function syncReport(report: PendingReport): Promise<void> {
     is_offline_sync: true,
   }
 
-  // ─ Step 3: Insert into Supabase ────────────────────────────────────
-  const { error } = await supabase.from(report.table).insert(finalPayload)
-  if (error) throw new Error(error.message)
+  // ─ Step 3: Insert into database / API ────────────────────────────────────
+  if (report.table === 'citizen_science_reports' || report.form_type === 'incident_public' || report.form_type === 'visitor_report') {
+    const res = await fetch('/api/reports/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(finalPayload),
+    })
+    const json = await res.json()
+    if (!res.ok || json.error) {
+      throw new Error(json.error || 'Failed to sync incident report')
+    }
+  } else {
+    const { error } = await supabase.from(report.table).insert(finalPayload)
+    if (error) throw new Error(error.message)
+  }
 
   await updateReport(report.id, { status: 'synced', error: undefined })
 }

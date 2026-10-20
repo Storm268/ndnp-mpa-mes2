@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import dynamic from 'next/dynamic'
+import { Map as MapIcon, Edit3, Trash2 } from 'lucide-react'
 
 // Lazy-load uploader (uses shpjs which is large)
 const ShapefileUploader = dynamic(() => import('@/components/map/ShapefileUploader'), { ssr: false })
@@ -224,7 +225,7 @@ export default function LayerManagementPage() {
               <button onClick={() => bulkToggle(true)} style={{ padding:'8px 14px', border:'1px solid rgba(16,185,129,0.4)', borderRadius:'8px', background:'rgba(16,185,129,0.08)', color:'#10b981', fontSize:'12px', fontWeight:'700', cursor:'pointer', fontFamily:'inherit' }}>
                 Show All
               </button>
-              <button onClick={() => bulkToggle(false)} style={{ padding:'8px 14px', border:'1px solid rgba(255,255,255,0.12)', borderRadius:'8px', background:'rgba(255,255,255,0.04)', color:'#7aa3be', fontSize:'12px', fontWeight:'700', cursor:'pointer', fontFamily:'inherit' }}>
+              <button onClick={() => bulkToggle(false)} style={{ padding:'8px 14px', border:'1px solid var(--border)', borderRadius:'8px', background:'var(--surface2)', color:'var(--text-dim)', fontSize:'12px', fontWeight:'700', cursor:'pointer', fontFamily:'inherit' }}>
                 Hide All
               </button>
             </>
@@ -241,10 +242,10 @@ export default function LayerManagementPage() {
 
       {/* ── Upload panel ── */}
       {showUpload && isAdmin && (
-        <div style={{ marginBottom:'24px', background:'rgba(0,188,212,0.05)', border:'1px solid rgba(0,188,212,0.2)', borderRadius:'14px', padding:'20px' }}>
+        <div style={{ marginBottom:'24px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius: '14px', padding:'20px', boxShadow: 'var(--card-shadow)' }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px' }}>
-            <div style={{ fontSize:'14px', fontWeight:'700', color:'#00bcd4' }}>Upload New Shapefile Layer</div>
-            <button onClick={() => setShowUpload(false)} style={{ background:'none', border:'none', color:'#5a7d94', cursor:'pointer', fontSize:'18px' }}>×</button>
+            <div style={{ fontSize:'14px', fontWeight:'700', color:'var(--teal)' }}>Upload New Shapefile Layer</div>
+            <button onClick={() => setShowUpload(false)} style={{ background:'none', border:'none', color:'var(--text-muted)', cursor:'pointer', fontSize:'18px' }}>×</button>
           </div>
           <ShapefileUploader onDone={() => { setShowUpload(false); fetchLayers() }} />
         </div>
@@ -258,9 +259,9 @@ export default function LayerManagementPage() {
           { label:'Hidden',       val: layers.length - visibleCount, color:'#6b7280' },
           { label:'Total Features', val: layers.reduce((a, l) => a + (l.feature_count ?? 0), 0).toLocaleString(), color:'#f59e0b' },
         ].map(s => (
-          <div key={s.label} style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'12px', padding:'14px', textAlign:'center' }}>
+          <div key={s.label} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'12px', padding:'14px', textAlign:'center', boxShadow:'var(--card-shadow)' }}>
             <div style={{ fontSize:'22px', fontWeight:'800', color:s.color, marginBottom:'3px', fontVariantNumeric:'tabular-nums' }}>{s.val}</div>
-            <div style={{ fontSize:'11px', color:'#5a7d94', textTransform:'uppercase', letterSpacing:'0.5px' }}>{s.label}</div>
+            <div style={{ fontSize:'11px', color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.5px' }}>{s.label}</div>
           </div>
         ))}
       </div>
@@ -268,14 +269,14 @@ export default function LayerManagementPage() {
       {/* ── Search ── */}
       <div style={{ marginBottom:'20px' }}>
         <div style={{ position:'relative', maxWidth:'340px' }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5a7d94" strokeWidth="2" style={{ position:'absolute', left:'12px', top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" style={{ position:'absolute', left:'12px', top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
           <input
             placeholder="Search layers…"
             value={search} onChange={e => setSearch(e.target.value)}
-            style={{ width:'100%', padding:'9px 12px 9px 36px', background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:'8px', color:'#e2f0f9', fontSize:'13px', outline:'none', fontFamily:'inherit' }}
+            style={{ width:'100%', padding:'9px 12px 9px 36px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:'8px', color:'var(--text)', fontSize:'13px', outline:'none', fontFamily:'inherit' }}
           />
         </div>
-        {search && <div style={{ marginTop:'6px', fontSize:'12px', color:'#5a7d94' }}>{filtered.length} of {layers.length} layers</div>}
+        {search && <div style={{ marginTop:'6px', fontSize:'12px', color:'var(--text-muted)' }}>{filtered.length} of {layers.length} layers</div>}
       </div>
 
       {/* ── Bulk status ── */}
@@ -292,11 +293,12 @@ export default function LayerManagementPage() {
           const isSaving = savingIds.has(layer.id)
           return (
             <div key={layer.id} style={{
-              background:'rgba(255,255,255,0.03)',
-              border:'1px solid rgba(255,255,255,0.07)',
+              background:'var(--surface)',
+              border:'1px solid var(--border)',
               borderLeft:`4px solid ${layer.color}`,
               borderRadius:'12px', padding:'16px 18px',
               position:'relative', overflow:'hidden',
+              boxShadow:'var(--card-shadow)',
               transition:'border-color 200ms',
             }}>
               {/* Saving indicator */}
@@ -308,7 +310,7 @@ export default function LayerManagementPage() {
               <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'12px' }}>
                 {/* Color picker */}
                 <div style={{ position:'relative', flexShrink:0 }}>
-                  <div style={{ width:'28px', height:'28px', borderRadius:'7px', background:layer.color, border:'2px solid rgba(255,255,255,0.15)', cursor: canEdit ? 'pointer' : 'default', overflow:'hidden', position:'relative' }}>
+                  <div style={{ width:'28px', height:'28px', borderRadius:'7px', background:layer.color, border:'2px solid var(--border)', cursor: canEdit ? 'pointer' : 'default', overflow:'hidden', position:'relative' }}>
                     {canEdit && (
                       <input
                         type="color"
@@ -331,19 +333,19 @@ export default function LayerManagementPage() {
                       onChange={e => setRenameVal(e.target.value)}
                       onBlur={() => commitRename(layer.id)}
                       onKeyDown={e => { if (e.key === 'Enter') commitRename(layer.id); if (e.key === 'Escape') setRenamingId(null) }}
-                      style={{ width:'100%', fontSize:'14px', fontWeight:'700', background:'rgba(255,255,255,0.08)', border:'1px solid rgba(0,188,212,0.5)', borderRadius:'5px', color:'#e2f0f9', padding:'3px 7px', outline:'none', fontFamily:'inherit' }}
+                      style={{ width:'100%', fontSize:'14px', fontWeight:'700', background:'var(--surface2)', border:'1px solid var(--teal)', borderRadius:'5px', color:'var(--text)', padding:'3px 7px', outline:'none', fontFamily:'inherit' }}
                     />
                   ) : (
                     <div
                       onClick={() => startRename(layer)}
                       title={canEdit ? 'Click to rename' : layer.name}
-                      style={{ fontSize:'14px', fontWeight:'700', color:'#e2f0f9', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', cursor: canEdit ? 'text' : 'default' }}
+                      style={{ fontSize:'14px', fontWeight:'700', color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', cursor: canEdit ? 'text' : 'default' }}
                     >
                       {layer.name}
                     </div>
                   )}
                   {layer.file_name && (
-                    <div style={{ fontSize:'11px', color:'#3d6b84', marginTop:'1px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{layer.file_name}</div>
+                    <div style={{ fontSize:'11px', color:'var(--text-muted)', marginTop:'1px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{layer.file_name}</div>
                   )}
                 </div>
 
@@ -354,7 +356,7 @@ export default function LayerManagementPage() {
               {/* Feature count + status badges */}
               <div style={{ display:'flex', gap:'6px', marginBottom:'12px', flexWrap:'wrap' }}>
                 {layer.feature_count !== null && (
-                  <span style={{ padding:'2px 8px', borderRadius:'10px', fontSize:'11px', fontWeight:'600', background:'rgba(255,255,255,0.06)', color:'#7aa3be' }}>
+                  <span style={{ padding:'2px 8px', borderRadius:'10px', fontSize:'11px', fontWeight:'600', background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text-dim)' }}>
                     {layer.feature_count} feature{layer.feature_count !== 1 ? 's' : ''}
                   </span>
                 )}
@@ -367,7 +369,7 @@ export default function LayerManagementPage() {
               {canEdit && (
                 <div style={{ marginBottom:'12px' }}>
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'5px' }}>
-                    <span style={{ fontSize:'11px', color:'#5a7d94', fontWeight:'600', textTransform:'uppercase', letterSpacing:'0.4px' }}>Opacity</span>
+                    <span style={{ fontSize:'11px', color:'var(--text-muted)', fontWeight:'600', textTransform:'uppercase', letterSpacing:'0.4px' }}>Opacity</span>
                     <span style={{ fontSize:'12px', fontWeight:'700', color: layer.color, fontFamily:'monospace' }}>{Math.round(layer.opacity * 100)}%</span>
                   </div>
                   <div style={{ position:'relative', height:'20px', display:'flex', alignItems:'center' }}>
@@ -383,19 +385,19 @@ export default function LayerManagementPage() {
               )}
 
               {/* Actions */}
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', paddingTop:'8px', borderTop:'1px solid rgba(255,255,255,0.05)' }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', paddingTop:'8px', borderTop:'1px solid var(--border)' }}>
                 <div style={{ display:'flex', gap:'8px' }}>
                   {/* View on map */}
                   <a href="/dashboard/maps" target="_blank" rel="noopener" title="View on map"
-                    style={{ display:'flex', alignItems:'center', gap:'5px', padding:'5px 10px', border:'1px solid rgba(255,255,255,0.08)', borderRadius:'6px', background:'rgba(255,255,255,0.03)', color:'#7aa3be', fontSize:'11px', fontWeight:'600', textDecoration:'none' }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 20l-5.447-2.724A1 1 0 0 1 3 16.382V5.618a1 1 0 0 1 1.447-.894L9 7m0 13l6-3m-6-3V7m6 10l4.553 2.276A1 1 0 0 0 21 18.382V7.618a1 1 0 0 0-1.447-.894L15 9m0 8V9m0 0L9 7"/></svg>
+                    style={{ display:'flex', alignItems:'center', gap:'5px', padding:'5px 10px', border:'1px solid var(--border)', borderRadius:'6px', background:'var(--surface2)', color:'var(--text-dim)', fontSize:'11px', fontWeight:'600', textDecoration:'none' }}>
+                    <MapIcon size={12} />
                     Map
                   </a>
                   {canEdit && (
                     <button onClick={() => startRename(layer)}
-                      title="Rename layer"
-                      style={{ display:'flex', alignItems:'center', gap:'5px', padding:'5px 10px', border:'1px solid rgba(255,255,255,0.08)', borderRadius:'6px', background:'rgba(255,255,255,0.03)', color:'#7aa3be', fontSize:'11px', fontWeight:'600', cursor:'pointer', fontFamily:'inherit' }}>
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                       title="Rename layer"
+                      style={{ display:'flex', alignItems:'center', gap:'5px', padding:'5px 10px', border:'1px solid var(--border)', borderRadius:'6px', background:'var(--surface2)', color:'var(--text-dim)', fontSize:'11px', fontWeight:'600', cursor:'pointer', fontFamily:'inherit' }}>
+                      <Edit3 size={11} />
                       Rename
                     </button>
                   )}
@@ -405,7 +407,7 @@ export default function LayerManagementPage() {
                   <button onClick={() => deleteLayer(layer.id, layer.name)}
                     title="Delete layer"
                     style={{ display:'flex', alignItems:'center', gap:'5px', padding:'5px 10px', border:'1px solid rgba(239,68,68,0.2)', borderRadius:'6px', background:'rgba(239,68,68,0.06)', color:'#f87171', fontSize:'11px', fontWeight:'600', cursor:'pointer', fontFamily:'inherit' }}>
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+                    <Trash2 size={11} />
                     Delete
                   </button>
                 )}

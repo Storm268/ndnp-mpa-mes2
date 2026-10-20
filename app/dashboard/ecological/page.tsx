@@ -138,7 +138,7 @@ export default async function EcologicalDashboard() {
               const fmt = (v: unknown, dec = 1) => typeof v === 'number' ? v.toFixed(dec) : '—'
               const date = typeof r.sampled_at === 'string' ? new Date(r.sampled_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'
               return (
-                <tr key={i} style={{ borderBottom: '1px solid rgba(26,58,82,0.5)' }}>
+                <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
                   <td style={{ padding: '10px 14px' }}>
                     <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--sky)', letterSpacing: '0.03em' }}>{ms?.station_code}</div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text)' }}>{ms?.name}</div>

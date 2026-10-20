@@ -2,6 +2,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { MapContainer, TileLayer, Marker, useMapEvents, ZoomControl } from 'react-leaflet'
 import { divIcon, type LatLng } from 'leaflet'
+import { ArrowLeft, MapPin, Loader2 } from 'lucide-react'
+import { fixLeafletDefaultIcons } from '@/lib/leaflet-fix'
+
+fixLeafletDefaultIcons()
 
 const PARK_CENTER: [number, number] = [17.0058, -61.7641]
 const PARK_ZOOM = 14
@@ -9,10 +13,10 @@ const PARK_ZOOM = 14
 // Pulsing GPS marker icon
 const gpsIcon = divIcon({
   html: `<div style="width:36px;height:36px;position:relative">
-    <div style="position:absolute;inset:0;border-radius:50%;background:rgba(0,188,212,0.2);animation:gpsPulse 1.5s ease-out infinite"></div>
+    <div style="position:absolute;inset:0;border-radius:50%;background:rgba(0,188,212,0.25);animation:gpsPulse 1.5s ease-out infinite"></div>
     <div style="position:absolute;top:6px;left:6px;width:24px;height:24px;border-radius:50%;background:#00bcd4;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,188,212,0.6)"></div>
   </div>`,
-  className: '', iconSize: [36, 36], iconAnchor: [18, 18], popupAnchor: [0, -20],
+  className: 'custom-map-icon', iconSize: [36, 36], iconAnchor: [18, 18], popupAnchor: [0, -20],
 })
 
 function ClickHandler({ onPick }: { onPick: (latlng: LatLng) => void }) {
@@ -70,7 +74,7 @@ export default function MapLocationPicker({ value, onChange, onClose }: Props) {
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', gap:'12px', padding:'12px 16px', background:'rgba(2,11,20,0.95)', borderBottom:'1px solid rgba(255,255,255,0.08)', flexShrink:0 }}>
         <button onClick={onClose} style={{ background:'none', border:'none', color:'#7aa3be', cursor:'pointer', padding:'4px', display:'flex' }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          <ArrowLeft size={20} />
         </button>
         <div style={{ flex:1 }}>
           <div style={{ fontSize:'15px', fontWeight:'700', color:'#fff' }}>Pick Location</div>
@@ -78,13 +82,13 @@ export default function MapLocationPicker({ value, onChange, onClose }: Props) {
         </div>
         {gpsStatus === 'loading' && (
           <div style={{ fontSize:'11px', color:'#00bcd4', display:'flex', alignItems:'center', gap:'5px' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation:'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-18 0"/></svg>
+            <Loader2 size={14} className="animate-spin" />
             Locating…
           </div>
         )}
         {gpsStatus === 'ok' && (
           <button onClick={handleUseGps} style={{ padding:'6px 12px', border:'1px solid rgba(0,188,212,0.4)', borderRadius:'7px', background:'rgba(0,188,212,0.1)', color:'#00bcd4', fontSize:'12px', fontWeight:'700', cursor:'pointer', display:'flex', alignItems:'center', gap:'5px' }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a10 10 0 1 0 10 10H12V2zM12 2a10 10 0 0 1 10 10"/><circle cx="12" cy="12" r="3"/></svg>
+            <MapPin size={13} />
             My GPS
           </button>
         )}

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import PhotoCapture from '@/components/forms/PhotoCapture'
 import { enqueueReport } from '@/lib/offline/db'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 const MapLocationLoader = dynamic(() => import('@/components/forms/MapLocationLoader'), { ssr: false })
 
@@ -45,22 +46,25 @@ export default function ReportPage() {
 
     const ref = `INC-${Date.now().toString(36).toUpperCase()}`
 
+    // Check if user is logged in
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
     const payload: Record<string, unknown> = {
       report_type:          form.report_type,
+      incident_type:        form.report_type,
       title:                form.title || `${REPORT_TYPES.find(r => r.value === form.report_type)?.label} Report`,
       description:          form.description,
-      location_description: form.location_text || null,
-      gps_lat:              location.lat ?? null,
-      gps_lng:              location.lng ?? null,
+      location_text:        form.location_text || null,
+      gps_lat:              location.lat ?? 17.0058,
+      gps_lng:              location.lng ?? -61.7641,
       severity:             form.severity,
-      status:               'pending',
-      is_anonymous:         true,
-      reporter_name:        form.contact_name  || null,
-      reporter_email:       form.contact_email || null,
-      reporter_phone:       form.contact_phone || null,
-      photo_urls:           photoUrls.length > 0 ? photoUrls : null,
+      contact_name:         form.contact_name  || null,
+      contact_email:        form.contact_email || null,
+      contact_phone:        form.contact_phone || null,
+      photo_urls:           photoUrls.length > 0 ? photoUrls : [],
       reference_id:         ref,
-      user_id:              null,
+      reporter_id:          user?.id || null,
     }
 
     // ── OFFLINE: save to IndexedDB queue ───────────────────────────────────
@@ -82,36 +86,54 @@ export default function ReportPage() {
       return
     }
 
-    // ── ONLINE: submit directly to Supabase ────────────────────────────────
-    const supabase = createClient()
-    const { error: insertErr } = await supabase.from('citizen_science_reports').insert(payload)
-
-    if (insertErr) { setError(`Submission failed: ${insertErr.message}`); setLoading(false); return }
-    setRefId(ref); setSubmitted(true); setLoading(false)
+    // ── ONLINE: submit via server API endpoint ──────────────────────────────
+    try {
+      const res = await fetch('/api/reports/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const result = await res.json()
+      if (!res.ok || result.error) {
+        setError(`Submission failed: ${result.error || 'Server error occurred'}`)
+        setLoading(false)
+        return
+      }
+      setRefId(result.reference_id || ref)
+      setSubmitted(true)
+      setLoading(false)
+    } catch {
+      setError('Network error: Unable to submit report. Please check your connection or save offline.')
+      setLoading(false)
+    }
   }
 
   const inputStyle: React.CSSProperties = {
     width:'100%', padding:'11px 14px',
-    background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)',
-    borderRadius:'8px', color:'#e2f0f9', fontSize:'14px', outline:'none', fontFamily:'inherit',
+    background:'var(--surface2)', border:'1px solid var(--border)',
+    borderRadius:'8px', color:'var(--text)', fontSize:'14px', outline:'none', fontFamily:'inherit',
   }
 
   return (
-    <div style={{ minHeight:'100vh', background:'var(--ocean-deep)', display:'flex', flexDirection:'column', alignItems:'center', padding:'40px 16px', fontFamily:'var(--font-jakarta)' }}>
+    <div style={{ minHeight:'100vh', background:'var(--bg)', display:'flex', flexDirection:'column', alignItems:'center', padding:'40px 16px', fontFamily:'var(--font-jakarta)' }}>
       <div style={{ width:'100%', maxWidth:'580px' }}>
-        <div style={{ textAlign:'center', marginBottom:'28px' }}>
+        <div style={{ textAlign:'center', marginBottom:'28px', position:'relative' }}>
+          <div style={{ position:'absolute', top:0, right:0 }}>
+            <ThemeToggle />
+          </div>
           <Link href="/" style={{ display:'inline-flex', alignItems:'center', gap:'8px', textDecoration:'none', marginBottom:'16px' }}>
-            <span style={{ fontSize:'13px', color:'#7aa3be' }}>← Back to Home</span>
+            <span style={{ fontSize:'13px', color:'var(--text-muted)' }}>← Back to Home</span>
           </Link>
+          <br />
           <div style={{ display:'inline-flex', alignItems:'center', gap:'6px', padding:'5px 12px', borderRadius:'20px', background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.25)', marginBottom:'14px' }}>
             <span style={{ fontSize:'12px', color:'#f87171', fontWeight:'600' }}>ANONYMOUS REPORTING</span>
           </div>
-          <h1 style={{ fontSize:'24px', fontWeight:'800', color:'#fff', marginBottom:'6px' }}>Submit an Incident Report</h1>
-          <p style={{ fontSize:'13px', color:'#5a7d94' }}>No account required — reviewed within 24 hours.</p>
+          <h1 style={{ fontSize:'24px', fontWeight:'800', color:'var(--text)', marginBottom:'6px' }}>Submit an Incident Report</h1>
+          <p style={{ fontSize:'13px', color:'var(--text-muted)' }}>No account required — reviewed within 24 hours.</p>
         </div>
 
         {submitted ? (
-          <div style={{ background: savedOffline ? 'rgba(245,158,11,0.06)' : 'rgba(16,185,129,0.06)', border: `1px solid ${savedOffline ? 'rgba(245,158,11,0.25)' : 'rgba(16,185,129,0.25)'}`, borderRadius:'16px', padding:'40px', textAlign:'center' }}>
+          <div style={{ background: savedOffline ? 'rgba(245,158,11,0.06)' : 'rgba(16,185,129,0.06)', border: `1px solid ${savedOffline ? 'rgba(245,158,11,0.25)' : 'rgba(16,185,129,0.25)'}`, borderRadius:'16px', padding:'40px', textAlign:'center', boxShadow:'var(--card-shadow)' }}>
             <div style={{ width:'56px', height:'56px', borderRadius:'50%', background: savedOffline ? 'rgba(245,158,11,0.15)' : 'rgba(16,185,129,0.15)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
               {savedOffline ? (
                 <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="#fbbf24" strokeWidth="2">
@@ -126,27 +148,27 @@ export default function ReportPage() {
             <h2 style={{ fontSize:'20px', fontWeight:'700', color: savedOffline ? '#fbbf24' : '#10b981', marginBottom:'8px' }}>
               {savedOffline ? 'Saved for Later' : 'Report Submitted'}
             </h2>
-            <p style={{ fontSize:'13px', color:'#7aa3be', marginBottom:'16px' }}>
+            <p style={{ fontSize:'13px', color:'var(--text-muted)', marginBottom:'16px' }}>
               {savedOffline
                 ? 'Your device is offline. The report is safely stored and will sync automatically when connectivity returns.'
                 : 'Thank you for helping protect the marine park.'}
             </p>
-            <div style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:'10px', padding:'12px', marginBottom:'20px' }}>
-              <div style={{ fontSize:'11px', color:'#5a7d94', marginBottom:'3px', textTransform:'uppercase', letterSpacing:'0.5px' }}>Reference ID</div>
-              <div style={{ fontSize:'20px', fontWeight:'800', color:'#00bcd4', fontFamily:'monospace' }}>{refId}</div>
+            <div style={{ background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:'10px', padding:'12px', marginBottom:'20px' }}>
+              <div style={{ fontSize:'11px', color:'var(--text-muted)', marginBottom:'3px', textTransform:'uppercase', letterSpacing:'0.5px' }}>Reference ID</div>
+              <div style={{ fontSize:'20px', fontWeight:'800', color:'var(--teal)', fontFamily:'monospace' }}>{refId}</div>
             </div>
             {savedOffline && (
-              <div style={{ fontSize:'12px', color:'#5a7d94', marginBottom:'16px' }}>
+              <div style={{ fontSize:'12px', color:'var(--text-muted)', marginBottom:'16px' }}>
                 📁 Keep this reference ID — it will appear in the system once synced.
               </div>
             )}
             <div style={{ display:'flex', gap:'10px', justifyContent:'center', flexWrap:'wrap' }}>
-              <Link href="/" style={{ padding:'9px 18px', border:'1px solid rgba(255,255,255,0.12)', borderRadius:'8px', color:'#7aa3be', fontSize:'13px', fontWeight:'600', textDecoration:'none' }}>Back to Home</Link>
+              <Link href="/" style={{ padding:'9px 18px', border:'1px solid var(--border)', borderRadius:'8px', color:'var(--text-dim)', fontSize:'13px', fontWeight:'600', textDecoration:'none' }}>Back to Home</Link>
               <Link href="/register" style={{ padding:'9px 18px', background:'rgba(0,188,212,0.15)', border:'1px solid rgba(0,188,212,0.3)', borderRadius:'8px', color:'#00bcd4', fontSize:'13px', fontWeight:'600', textDecoration:'none' }}>Create Account to Track</Link>
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:'16px', padding:'24px' }}>
+          <form onSubmit={handleSubmit} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'16px', padding:'24px', boxShadow:'var(--card-shadow)' }}>
 
             {/* Offline notice */}
             {typeof window !== 'undefined' && !navigator.onLine && (
@@ -167,15 +189,15 @@ export default function ReportPage() {
 
             {/* Incident Type */}
             <div style={{ marginBottom:'18px' }}>
-              <label style={{ display:'block', fontSize:'12px', fontWeight:'600', color:'#7aa3be', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:'8px' }}>Incident Type *</label>
+              <label style={{ display:'block', fontSize:'12px', fontWeight:'600', color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:'8px' }}>Incident Type *</label>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
                 {REPORT_TYPES.map(rt => (
                   <button key={rt.value} type="button"
                     onClick={() => update('report_type', rt.value)}
                     style={{ padding:'10px 12px', borderRadius:'8px', fontSize:'13px', fontWeight:'600', cursor:'pointer', textAlign:'left', fontFamily:'inherit',
-                      border: form.report_type === rt.value ? `1px solid ${rt.color}` : '1px solid rgba(255,255,255,0.08)',
-                      background: form.report_type === rt.value ? `${rt.color}18` : 'rgba(255,255,255,0.03)',
-                      color: form.report_type === rt.value ? rt.color : '#7aa3be',
+                      border: form.report_type === rt.value ? `1px solid ${rt.color}` : '1px solid var(--border)',
+                      background: form.report_type === rt.value ? `${rt.color}18` : 'var(--surface2)',
+                      color: form.report_type === rt.value ? rt.color : 'var(--text-dim)',
                     }}>
                     {rt.label}
                   </button>
@@ -185,14 +207,14 @@ export default function ReportPage() {
 
             {/* Title */}
             <div style={{ marginBottom:'14px' }}>
-              <label style={{ display:'block', fontSize:'12px', fontWeight:'600', color:'#7aa3be', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:'6px' }}>Brief Title</label>
+              <label style={{ display:'block', fontSize:'12px', fontWeight:'600', color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:'6px' }}>Brief Title</label>
               <input style={inputStyle} placeholder="e.g. Anchor damage to coral at Reef Point"
                 value={form.title} onChange={e => update('title', e.target.value)} />
             </div>
 
             {/* Description */}
             <div style={{ marginBottom:'14px' }}>
-              <label style={{ display:'block', fontSize:'12px', fontWeight:'600', color:'#7aa3be', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:'6px' }}>Description *</label>
+              <label style={{ display:'block', fontSize:'12px', fontWeight:'600', color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:'6px' }}>Description *</label>
               <textarea required rows={4} style={{ ...inputStyle, resize:'vertical', lineHeight:'1.6' }}
                 placeholder="Describe what you saw. Include time, extent, vessels, persons involved…"
                 value={form.description} onChange={e => update('description', e.target.value)} />
@@ -208,14 +230,14 @@ export default function ReportPage() {
 
             {/* Severity */}
             <div style={{ marginBottom:'18px' }}>
-              <label style={{ display:'block', fontSize:'12px', fontWeight:'600', color:'#7aa3be', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:'6px' }}>Severity *</label>
+              <label style={{ display:'block', fontSize:'12px', fontWeight:'600', color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:'6px' }}>Severity *</label>
               <input type="range" min="1" max="5" value={form.severity}
                 onChange={e => update('severity', Number(e.target.value))}
                 style={{ width:'100%', accentColor: SEV_COLOR[form.severity], cursor:'pointer', marginBottom:'6px' }} />
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <span style={{ fontSize:'11px', color:'#5a7d94' }}>1 — Low</span>
+                <span style={{ fontSize:'11px', color:'var(--text-muted)' }}>1 — Low</span>
                 <span style={{ fontSize:'13px', fontWeight:'700', color: SEV_COLOR[form.severity] }}>Level {form.severity}: {SEV_LABEL[form.severity]}</span>
-                <span style={{ fontSize:'11px', color:'#5a7d94' }}>5 — Critical</span>
+                <span style={{ fontSize:'11px', color:'var(--text-muted)' }}>5 — Critical</span>
               </div>
             </div>
 
@@ -230,8 +252,8 @@ export default function ReportPage() {
             </div>
 
             {/* Optional contact */}
-            <div style={{ marginBottom:'20px', padding:'14px', background:'rgba(255,255,255,0.02)', borderRadius:'10px', border:'1px solid rgba(255,255,255,0.06)' }}>
-              <div style={{ fontSize:'12px', fontWeight:'700', color:'#7aa3be', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:'8px' }}>Contact Info <span style={{ fontWeight:400, textTransform:'none', letterSpacing:0, color:'#3d6b84' }}>(optional)</span></div>
+            <div style={{ marginBottom:'20px', padding:'14px', background:'var(--surface2)', borderRadius:'10px', border:'1px solid var(--border)' }}>
+              <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:'8px' }}>Contact Info <span style={{ fontWeight:400, textTransform:'none', letterSpacing:0, color:'var(--text-muted)' }}>(optional)</span></div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
                 <input style={inputStyle} placeholder="Name" value={form.contact_name} onChange={e => update('contact_name', e.target.value)} />
                 <input style={inputStyle} placeholder="Phone" value={form.contact_phone} onChange={e => update('contact_phone', e.target.value)} />

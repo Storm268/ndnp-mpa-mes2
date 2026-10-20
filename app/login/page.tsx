@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -26,7 +27,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'var(--bg)' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'var(--bg)', position: 'relative' }}>
+      {/* Theme toggle bar */}
+      <div style={{ position: 'absolute', top: '20px', right: '20px' }}>
+        <ThemeToggle />
+      </div>
+
       {/* Logo mark */}
       <div style={{ marginBottom: '32px', textAlign: 'center' }}>
         <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'rgba(13,148,136,0.15)', border: '1px solid rgba(13,148,136,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>

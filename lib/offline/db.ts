@@ -19,6 +19,7 @@ export type FormType =
   | 'fish'             // dashboard/forms/fish
   | 'heritage'         // dashboard/forms/heritage
   | 'water_quality'    // dashboard/forms/water-quality
+  | 'visitor_report'   // visitor citizen science & incident report
 
 export type SyncStatus = 'pending' | 'syncing' | 'failed' | 'synced'
 

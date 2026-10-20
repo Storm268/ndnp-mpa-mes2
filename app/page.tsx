@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { ROLE_HOME } from '@/lib/supabase/client'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { ThemeToggle } from '@/components/theme-toggle'
+import PWAInstallButton from '@/components/pwa/PWAInstallButton'
 
 export default async function RootPage() {
   const supabase = await createClient()
@@ -18,26 +20,31 @@ export default async function RootPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--ocean-deep)', color: 'var(--text-primary)', fontFamily: 'var(--font-jakarta)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text-primary)', fontFamily: 'var(--font-jakarta)' }}>
       {/* Nav */}
-      <nav style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '0 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px', position: 'sticky', top: 0, zIndex: 50, background: 'rgba(2,11,20,0.9)', backdropFilter: 'blur(12px)' }}>
+      <nav style={{ borderBottom: '1px solid var(--border)', padding: '0 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px', position: 'sticky', top: 0, zIndex: 50, background: 'var(--surface)', backdropFilter: 'blur(12px)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, #00bcd4, #0077a8)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"/></svg>
           </div>
           <div>
-            <div style={{ fontSize: '13px', fontWeight: '700', color: '#fff', letterSpacing: '-0.2px' }}>NDNP Marine Park</div>
-            <div style={{ fontSize: '10px', color: '#5a7d94', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Caribbean Protected Area</div>
+            <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)', letterSpacing: '-0.2px' }}>NDNP Marine Park</div>
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Caribbean Protected Area</div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <PWAInstallButton variant="header" />
+          <ThemeToggle />
+          <Link href="/dashboard/citizen" style={{ padding: '8px 16px', border: '1px solid rgba(0,188,212,0.5)', borderRadius: '8px', color: '#fff', fontSize: '13px', fontWeight: '700', textDecoration: 'none', background: 'linear-gradient(135deg, #00bcd4, #0077a8)', boxShadow: '0 2px 10px rgba(0,188,212,0.25)' }}>
+            Citizen Portal
+          </Link>
           <Link href="/report" style={{ padding: '8px 16px', border: '1px solid rgba(239,68,68,0.4)', borderRadius: '8px', color: '#f87171', fontSize: '13px', fontWeight: '600', textDecoration: 'none', background: 'rgba(239,68,68,0.08)' }}>
             Report Incident
           </Link>
-          <Link href="/register" style={{ padding: '8px 16px', border: '1px solid rgba(0,188,212,0.4)', borderRadius: '8px', color: '#00bcd4', fontSize: '13px', fontWeight: '600', textDecoration: 'none', background: 'rgba(0,188,212,0.08)' }}>
+          <Link href="/register" style={{ padding: '8px 16px', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text)', fontSize: '13px', fontWeight: '600', textDecoration: 'none', background: 'var(--surface2)' }}>
             Register
           </Link>
-          <Link href="/login" style={{ padding: '8px 16px', borderRadius: '8px', color: '#7aa3be', fontSize: '13px', fontWeight: '500', textDecoration: 'none' }}>
+          <Link href="/login" style={{ padding: '8px 16px', borderRadius: '8px', color: 'var(--text-dim)', fontSize: '13px', fontWeight: '500', textDecoration: 'none' }}>
             Staff Login
           </Link>
         </div>
@@ -45,24 +52,28 @@ export default async function RootPage() {
 
       {/* Hero */}
       <section style={{ padding: '80px 32px 60px', textAlign: 'center', maxWidth: '900px', margin: '0 auto', position: 'relative' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 12px', borderRadius: '20px', background: 'rgba(0,188,212,0.1)', border: '1px solid rgba(0,188,212,0.25)', marginBottom: '24px' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 14px', borderRadius: '20px', background: 'rgba(0,188,212,0.1)', border: '1px solid rgba(0,188,212,0.25)', marginBottom: '24px' }}>
           <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block', animation: 'pulse 2s infinite' }}></span>
-          <span style={{ fontSize: '12px', color: '#00bcd4', fontWeight: '600', letterSpacing: '0.5px' }}>PROTECTED MARINE AREA — OPEN TO VISITORS</span>
+          <span style={{ fontSize: '12px', color: 'var(--teal)', fontWeight: '700', letterSpacing: '0.6px' }}>NELSON&apos;S DOCKYARD NATIONAL PARK — UNESCO WORLD HERITAGE SITE</span>
         </div>
-        <h1 style={{ fontSize: 'clamp(32px, 5vw, 56px)', fontWeight: '800', color: '#fff', lineHeight: '1.1', marginBottom: '20px', letterSpacing: '-1px' }}>
+        <h1 style={{ fontSize: 'clamp(32px, 5vw, 56px)', fontWeight: '800', color: 'var(--text)', lineHeight: '1.1', marginBottom: '20px', letterSpacing: '-1px' }}>
           Welcome to the<br />
-          <span style={{ background: 'linear-gradient(135deg, #00bcd4, #0077a8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Caribbean Marine Reserve</span>
+          <span style={{ background: 'linear-gradient(135deg, #00bcd4, #0077a8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>NDNP Marine Sanctuary</span>
         </h1>
-        <p style={{ fontSize: '18px', color: '#7aa3be', lineHeight: '1.7', marginBottom: '40px', maxWidth: '640px', margin: '0 auto 40px' }}>
-          The National Designated Natural Park protects over 120km² of pristine Caribbean marine ecosystems.
-          Register as a citizen to report environmental threats and help protect our ocean.
+        <p style={{ fontSize: '18px', color: 'var(--text-muted)', lineHeight: '1.7', marginBottom: '36px', maxWidth: '680px', margin: '0 auto 36px' }}>
+          Protecting over 120km² of pristine Caribbean coral sanctuaries, sea turtle nesting beaches, and historic naval fortifications in Antigua &amp; Barbuda.
+          Explore the interactive marine trail map or report environmental observations directly to park rangers.
         </p>
-        <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Link href="/register" style={{ padding: '14px 32px', background: 'linear-gradient(135deg, #00bcd4, #0077a8)', borderRadius: '10px', color: '#fff', fontSize: '15px', fontWeight: '700', textDecoration: 'none', boxShadow: '0 4px 20px rgba(0,188,212,0.35)' }}>
-            Register as Citizen
+        <div style={{ display: 'flex', gap: '14px', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <Link href="/dashboard/citizen" style={{ padding: '14px 28px', background: 'linear-gradient(135deg, #00bcd4, #0077a8)', borderRadius: '10px', color: '#fff', fontSize: '15px', fontWeight: '700', textDecoration: 'none', boxShadow: '0 4px 20px rgba(0,188,212,0.35)' }}>
+            Enter Citizen Portal
           </Link>
-          <Link href="/report" style={{ padding: '14px 32px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px', color: '#e2f0f9', fontSize: '15px', fontWeight: '600', textDecoration: 'none' }}>
+          <PWAInstallButton variant="hero" />
+          <Link href="/report" style={{ padding: '14px 28px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: '10px', color: '#f87171', fontSize: '15px', fontWeight: '700', textDecoration: 'none' }}>
             Report an Incident
+          </Link>
+          <Link href="/register" style={{ padding: '14px 28px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: '15px', fontWeight: '700', textDecoration: 'none' }}>
+            Register as Citizen
           </Link>
         </div>
       </section>
@@ -76,9 +87,9 @@ export default async function RootPage() {
             { value: '4', label: 'Marine Zones', color: '#f59e0b' },
             { value: '24/7', label: 'Ranger Patrols', color: '#8b5cf6' },
           ].map((s) => (
-            <div key={s.label} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', padding: '20px', textAlign: 'center' }}>
+            <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '14px', padding: '20px', textAlign: 'center', boxShadow: 'var(--card-shadow)' }}>
               <div style={{ fontSize: '28px', fontWeight: '800', color: s.color, marginBottom: '6px', fontVariantNumeric: 'tabular-nums' }}>{s.value}</div>
-              <div style={{ fontSize: '12px', color: '#5a7d94', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>{s.label}</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>{s.label}</div>
             </div>
           ))}
         </div>
@@ -88,13 +99,13 @@ export default async function RootPage() {
       <section style={{ padding: '60px 32px', maxWidth: '900px', margin: '0 auto' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
           <div>
-            <div style={{ fontSize: '11px', fontWeight: '700', color: '#00bcd4', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>About the Park</div>
-            <h2 style={{ fontSize: '26px', fontWeight: '700', color: '#fff', marginBottom: '16px', letterSpacing: '-0.3px' }}>A Living Coral Sanctuary</h2>
-            <p style={{ fontSize: '14px', color: '#7aa3be', lineHeight: '1.8', marginBottom: '16px' }}>
+            <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>About the Park</div>
+            <h2 style={{ fontSize: '26px', fontWeight: '700', color: 'var(--text)', marginBottom: '16px', letterSpacing: '-0.3px' }}>A Living Coral Sanctuary</h2>
+            <p style={{ fontSize: '14px', color: 'var(--text-dim)', lineHeight: '1.8', marginBottom: '16px' }}>
               The NDNP MPA encompasses four distinct marine zones protecting critical habitats including
               coral reefs, seagrass beds, mangrove forests, and open water ecosystems.
             </p>
-            <p style={{ fontSize: '14px', color: '#7aa3be', lineHeight: '1.8' }}>
+            <p style={{ fontSize: '14px', color: 'var(--text-dim)', lineHeight: '1.8' }}>
               Our team of marine scientists, park rangers, and heritage officers work year-round
               to monitor, protect, and restore these vital Caribbean ecosystems.
             </p>
@@ -106,10 +117,10 @@ export default async function RootPage() {
               { name: 'Mangrove Coast', type: 'Heritage Zone', color: '#10b981' },
               { name: 'Open Water', type: 'Transition Zone', color: '#00bcd4' },
             ].map((z) => (
-              <div key={z.name} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '14px' }}>
+              <div key={z.name} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '14px', boxShadow: 'var(--card-shadow)' }}>
                 <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: z.color, marginBottom: '8px' }}></div>
-                <div style={{ fontSize: '13px', fontWeight: '600', color: '#e2f0f9', marginBottom: '3px' }}>{z.name}</div>
-                <div style={{ fontSize: '11px', color: '#5a7d94' }}>{z.type}</div>
+                <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text)', marginBottom: '3px' }}>{z.name}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{z.type}</div>
               </div>
             ))}
           </div>
@@ -117,11 +128,11 @@ export default async function RootPage() {
       </section>
 
       {/* How to Report */}
-      <section style={{ padding: '60px 32px', background: 'rgba(239,68,68,0.04)', borderTop: '1px solid rgba(239,68,68,0.1)', borderBottom: '1px solid rgba(239,68,68,0.1)' }}>
+      <section style={{ padding: '60px 32px', background: 'var(--surface2)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto' }}>
           <div style={{ fontSize: '11px', fontWeight: '700', color: '#f87171', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Report an Incident</div>
-          <h2 style={{ fontSize: '26px', fontWeight: '700', color: '#fff', marginBottom: '16px' }}>See Something? Report It.</h2>
-          <p style={{ fontSize: '14px', color: '#7aa3be', lineHeight: '1.8', marginBottom: '32px', maxWidth: '560px' }}>
+          <h2 style={{ fontSize: '26px', fontWeight: '700', color: 'var(--text)', marginBottom: '16px' }}>See Something? Report It.</h2>
+          <p style={{ fontSize: '14px', color: 'var(--text-dim)', lineHeight: '1.8', marginBottom: '32px', maxWidth: '560px' }}>
             You don't need an account to report environmental threats. All reports are reviewed
             by our ranger team within 24 hours. Provide as much detail as possible.
           </p>
@@ -132,10 +143,10 @@ export default async function RootPage() {
               { icon: '🗑️', label: 'Pollution', desc: 'Oil spills, plastic dumping, runoff' },
               { icon: '⚠️', label: 'Other Threats', desc: 'Boats, dive violations, disturbance' },
             ].map((item) => (
-              <div key={item.label} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '16px' }}>
+              <div key={item.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '16px', boxShadow: 'var(--card-shadow)' }}>
                 <div style={{ fontSize: '24px', marginBottom: '8px' }}>{item.icon}</div>
-                <div style={{ fontSize: '13px', fontWeight: '600', color: '#e2f0f9', marginBottom: '4px' }}>{item.label}</div>
-                <div style={{ fontSize: '12px', color: '#5a7d94' }}>{item.desc}</div>
+                <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text)', marginBottom: '4px' }}>{item.label}</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{item.desc}</div>
               </div>
             ))}
           </div>
@@ -148,9 +159,9 @@ export default async function RootPage() {
 
       {/* Register as Citizen */}
       <section style={{ padding: '60px 32px', maxWidth: '900px', margin: '0 auto' }}>
-        <div style={{ fontSize: '11px', fontWeight: '700', color: '#10b981', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Citizen Registration</div>
-        <h2 style={{ fontSize: '26px', fontWeight: '700', color: '#fff', marginBottom: '16px' }}>Join as a Registered Citizen</h2>
-        <p style={{ fontSize: '14px', color: '#7aa3be', lineHeight: '1.8', marginBottom: '32px', maxWidth: '560px' }}>
+        <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--green)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Citizen Registration</div>
+        <h2 style={{ fontSize: '26px', fontWeight: '700', color: 'var(--text)', marginBottom: '16px' }}>Join as a Registered Citizen</h2>
+        <p style={{ fontSize: '14px', color: 'var(--text-dim)', lineHeight: '1.8', marginBottom: '32px', maxWidth: '560px' }}>
           Create an account to track your incident reports, receive updates on marine conditions,
           and contribute to citizen science data collection in the park.
         </p>
@@ -161,10 +172,10 @@ export default async function RootPage() {
             { icon: '🔬', title: 'Citizen Science', desc: 'Contribute observations to research' },
             { icon: '🎯', title: 'Community', desc: 'Join a network of conservation stewards' },
           ].map((item) => (
-            <div key={item.title} style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.15)', borderRadius: '12px', padding: '16px' }}>
+            <div key={item.title} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '16px', boxShadow: 'var(--card-shadow)' }}>
               <div style={{ fontSize: '24px', marginBottom: '8px' }}>{item.icon}</div>
-              <div style={{ fontSize: '13px', fontWeight: '600', color: '#e2f0f9', marginBottom: '4px' }}>{item.title}</div>
-              <div style={{ fontSize: '12px', color: '#5a7d94' }}>{item.desc}</div>
+              <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text)', marginBottom: '4px' }}>{item.title}</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{item.desc}</div>
             </div>
           ))}
         </div>
@@ -175,41 +186,41 @@ export default async function RootPage() {
       </section>
 
       {/* Contact */}
-      <section style={{ padding: '40px 32px', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+      <section style={{ padding: '40px 32px', background: 'var(--surface2)', borderTop: '1px solid var(--border)' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '24px' }}>
           <div>
-            <div style={{ fontSize: '11px', fontWeight: '700', color: '#5a7d94', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Contact</div>
-            <div style={{ fontSize: '14px', color: '#7aa3be', lineHeight: '2' }}>
+            <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Contact</div>
+            <div style={{ fontSize: '14px', color: 'var(--text-dim)', lineHeight: '2' }}>
               <div>Emergency: +1 (800) PARK-911</div>
               <div>Info Line: +1 (800) NDNP-INFO</div>
               <div>Email: info@ndnp-mpa.gov</div>
             </div>
           </div>
           <div>
-            <div style={{ fontSize: '11px', fontWeight: '700', color: '#5a7d94', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Visitor Hours</div>
-            <div style={{ fontSize: '14px', color: '#7aa3be', lineHeight: '2' }}>
+            <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Visitor Hours</div>
+            <div style={{ fontSize: '14px', color: 'var(--text-dim)', lineHeight: '2' }}>
               <div>Mon–Fri: 7:00 AM – 6:00 PM</div>
               <div>Weekends: 8:00 AM – 5:00 PM</div>
               <div>Ranger Patrol: 24/7</div>
             </div>
           </div>
           <div>
-            <div style={{ fontSize: '11px', fontWeight: '700', color: '#5a7d94', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Quick Links</div>
+            <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Quick Links</div>
             <div style={{ fontSize: '14px', lineHeight: '2' }}>
+              <div><Link href="/dashboard/citizen" style={{ color: 'var(--teal)', textDecoration: 'none', fontWeight: 600 }}>Citizen Portal</Link></div>
               <div><Link href="/report" style={{ color: '#f87171', textDecoration: 'none' }}>Report an Incident</Link></div>
-              <div><Link href="/register" style={{ color: '#00bcd4', textDecoration: 'none' }}>Citizen Registration</Link></div>
-              <div><Link href="/login" style={{ color: '#7aa3be', textDecoration: 'none' }}>Staff Portal Login</Link></div>
+              <div><Link href="/register" style={{ color: 'var(--text-dim)', textDecoration: 'none' }}>Citizen Registration</Link></div>
+              <div><Link href="/login" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>Staff Portal Login</Link></div>
             </div>
           </div>
         </div>
       </section>
 
-      <footer style={{ padding: '20px 32px', textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-        <p style={{ fontSize: '12px', color: '#3d6b84' }}>
+      <footer style={{ padding: '20px 32px', textAlign: 'center', borderTop: '1px solid var(--border)', background: 'var(--surface)' }}>
+        <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
           © {new Date().getFullYear()} National Designated Natural Park — Marine Protected Area. All rights reserved.
         </p>
       </footer>
     </div>
   )
 }
-

@@ -117,7 +117,7 @@ export default async function HeritageDashboard() {
               const due = typeof m.due_date === 'string' ? new Date(m.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
               const isOverdue = typeof m.due_date === 'string' && new Date(m.due_date) < new Date()
               return (
-                <tr key={String(m.id)} style={{ borderBottom: '1px solid rgba(26,58,82,0.5)' }}>
+                <tr key={String(m.id)} style={{ borderBottom: '1px solid var(--border)' }}>
                   <td style={{ padding: '10px 14px' }}>
                     <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', padding: '2px 7px', borderRadius: '3px', color: col, background: `${col}18` }}>{String(m.priority)}</span>
                   </td>

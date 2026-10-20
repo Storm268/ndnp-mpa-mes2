@@ -15,7 +15,20 @@ const nextConfig: NextConfig = {
       process.env.SUPABASE_SERVICE_ROLE_KEY ??
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJvcmh5dmdta2ZzY2poc3Jrd3d2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDQxMzI3NCwiZXhwIjoyMDk1OTg5Mjc0fQ.GqFapLdxpL6mhgk6_zKuuFlWzN3cTorV4vVdj_lJ0XU",
   },
+  async redirects() {
+    return [
+      {
+        source: "/visitor",
+        destination: "/dashboard/citizen",
+        permanent: false,
+      },
+      {
+        source: "/visitor/:path*",
+        destination: "/dashboard/citizen",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
-

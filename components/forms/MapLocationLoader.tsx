@@ -1,6 +1,7 @@
 'use client'
 import dynamic from 'next/dynamic'
 import { useState } from 'react'
+import { MapPin } from 'lucide-react'
 
 // Leaflet requires no SSR
 const MapLocationPicker = dynamic(() => import('./MapLocationPicker'), { ssr: false })
@@ -35,9 +36,7 @@ export default function MapLocationLoader({ value, onChange, label = 'Location' 
         >
           {/* GPS icon */}
           <div style={{ width:'32px', height:'32px', borderRadius:'8px', background: hasLocation ? 'rgba(0,188,212,0.15)' : 'rgba(255,255,255,0.05)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={hasLocation ? '#00bcd4' : '#5a7d94'} strokeWidth="2">
-              <path d="M12 2a10 10 0 1 0 10 10H12V2z"/><circle cx="12" cy="12" r="3"/>
-            </svg>
+            <MapPin size={18} color={hasLocation ? '#00bcd4' : '#5a7d94'} />
           </div>
           <div style={{ flex:1, minWidth:0 }}>
             {hasLocation ? (

@@ -24,10 +24,23 @@ const isAllowedOrigin = (origin: string | null): boolean => {
   return false;
 };
 
-const SKIP_PATHS = ["/_next", "/favicon.ico", "/health", "/api/health", "/api/cw-auth"];
+const SKIP_PATHS = [
+  "/_next",
+  "/sw.js",
+  "/manifest.json",
+  "/manifest.webmanifest",
+  "/icons",
+  "/favicon.ico",
+  "/health",
+  "/api/health",
+  "/api/cw-auth",
+  "/marker-icon",
+  "/marker-shadow",
+  "/layers",
+];
 
 // Public paths — no auth required (page handles its own state)
-const PUBLIC_PATHS = ["/register", "/report"];
+const PUBLIC_PATHS = ["/register", "/report", "/dashboard/citizen", "/citizen"];
 
 const CODEWORDS_APP_URL =
   process.env.CODEWORDS_APP_URL || "https://codewords.agemo.ai";
@@ -83,6 +96,14 @@ async function handleSupabaseAuth(
   request: NextRequest
 ): Promise<NextResponse | null> {
   const { pathname } = request.nextUrl;
+
+  // Redirect any visitor paths to /dashboard/citizen
+  if (pathname === "/visitor" || pathname.startsWith("/visitor/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/dashboard/citizen";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
 
   // Public pages — pass through, page handles its own auth state
   const isPublic = pathname === "/" ||
@@ -161,6 +182,14 @@ function isLocalhost(request: NextRequest): boolean {
 // ── Main proxy export ─────────────────────────────────────────────────────────
 export async function proxy(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
+
+  // Immediately redirect any visitor paths to /dashboard/citizen
+  if (pathname === "/visitor" || pathname.startsWith("/visitor/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/dashboard/citizen";
+    url.search = "";
+    return NextResponse.redirect(url, 307);
+  }
 
   if (SKIP_PATHS.some((p) => pathname.startsWith(p))) {
     return addSecurityHeaders(NextResponse.next(), request);

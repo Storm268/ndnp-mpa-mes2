@@ -1,98 +1,290 @@
 @import "tailwindcss";
 
-@layer base {
-  :root {
-    /* Maritime Field Operations — Dark Ocean Palette */
-    --bg:        #071524;
-    --surface:   #0d2035;
-    --surface2:  #122840;
-    --border:    #1a3a52;
-    --border2:   #224d6b;
+/* ═══════════════════════════════════════════════════════════════
+   THEME PALETTES: DEFAULT (Caribbean Maritime), LIGHT (Daylight), DARK (Midnight OLED)
+   ═══════════════════════════════════════════════════════════════ */
 
-    /* Brand */
-    --teal:      #0d9488;
-    --teal-light:#14b8a6;
-    --sky:       #0891b2;
-    --amber:     #f59e0b;
-    --red:       #ef4444;
-    --green:     #22c55e;
-    --purple:    #8b5cf6;
+:root,
+  /* Font Definition */
 
-    /* Text */
-    --text:      #e2e8f0;
-    --text-muted:#64748b;
-    --text-dim:  #94a3b8;
-  }
+[data-theme="default"],
+html[data-theme="default"],
+body[data-theme="default"],
+html.default,
+.default {
+  --font-jakarta: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  /* Default: Signature Caribbean Maritime Deep Ocean */
+  --bg:           #071524;
+  --surface:      #0d2035;
+  --surface2:     #122840;
+  --surface3:     #173454;
+  --border:       #1a3a52;
+  --border2:      #224d6b;
+  --ocean-deep:   #020b14;
 
-  html {
-    background-color: var(--bg);
-    color: var(--text);
-    -webkit-font-smoothing: antialiased;
-  }
+  /* Brand Accents */
+  --teal:         #0d9488;
+  --teal-light:   #14b8a6;
+  --sky:          #0891b2;
+  --amber:        #f59e0b;
+  --red:          #ef4444;
+  --green:        #22c55e;
+  --purple:       #8b5cf6;
 
-  body {
-    background-color: var(--bg);
-    background-image:
-      radial-gradient(ellipse 120% 60% at 70% -10%, rgba(13,148,136,0.06) 0%, transparent 60%),
-      radial-gradient(ellipse 80% 40% at 10% 90%, rgba(8,145,178,0.04) 0%, transparent 50%);
-    min-height: 100vh;
-  }
+  /* Typography */
+  --text:         #f1f5f9;
+  --text-primary: #f1f5f9;
+  --text-dim:     #94a3b8;
+  --text-muted:   #64748b;
 
-  * {
-    border-color: var(--border);
-  }
-
-  ::-webkit-scrollbar { width: 5px; height: 5px; }
-  ::-webkit-scrollbar-track { background: var(--surface); }
-  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  --card-shadow:  0 4px 20px rgba(0, 0, 0, 0.45);
+  --input-bg:     #071524;
+  --header-bg:    rgba(13, 32, 53, 0.92);
 }
 
-@layer utilities {
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-  }
-  .card-hover {
-    transition: border-color 150ms, background 150ms;
-  }
-  .card-hover:hover {
-    border-color: var(--border2);
-    background: var(--surface2);
-  }
-  .stat-value {
-    font-size: 2rem;
-    font-weight: 800;
-    line-height: 1;
-    letter-spacing: -0.03em;
-  }
-  .status-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    display: inline-block;
-    flex-shrink: 0;
-  }
-  .traffic-green  { background: var(--green); }
-  .traffic-amber  { background: var(--amber); }
-  .traffic-red    { background: var(--red); }
-  .badge {
-    display: inline-flex; align-items: center;
-    padding: 2px 8px; border-radius: 4px;
-    font-size: 0.7rem; font-weight: 600;
-    letter-spacing: 0.04em; text-transform: uppercase;
-    border: 1px solid;
-  }
-  .section-label {
-    font-size: 0.65rem; font-weight: 700;
-    letter-spacing: 0.1em; text-transform: uppercase;
-    color: var(--text-muted);
-  }
-  .live-pulse {
-    animation: livePulse 2s ease-in-out infinite;
-  }
-  @keyframes livePulse {
-    0%, 100% { opacity: 0.5; }
-    50% { opacity: 1; }
-  }
+[data-theme="light"],
+html[data-theme="light"],
+body[data-theme="light"],
+html.light,
+.light {
+  /* Light: Pure Crisp White Mode */
+  --bg:           #ffffff;
+  --surface:      #ffffff;
+  --surface2:     #f8fafc;
+  --surface3:     #f1f5f9;
+  --border:       #e2e8f0;
+  --border2:      #cbd5e1;
+  --ocean-deep:   #ffffff;
+
+  /* Brand Accents */
+  --teal:         #0d9488;
+  --teal-light:   #0f766e;
+  --sky:          #0284c7;
+  --amber:        #d97706;
+  --red:          #dc2626;
+  --green:        #16a34a;
+  --purple:       #7c3aed;
+
+  /* Typography: Crisp high-contrast dark text */
+  --text:         #090d16;
+  --text-primary: #090d16;
+  --text-dim:     #334155;
+  --text-muted:   #64748b;
+
+  --card-shadow:  0 1px 3px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --input-bg:     #ffffff;
+  --header-bg:    #ffffff;
 }
 
+[data-theme="dark"],
+html[data-theme="dark"],
+body[data-theme="dark"],
+html.dark,
+.dark {
+  /* Dark: Ultra-Deep Midnight OLED Tactical Operations */
+  --bg:           #030712;
+  --surface:      #0b1120;
+  --surface2:     #111c33;
+  --surface3:     #1a2947;
+  --border:       #1e293b;
+  --border2:      #334155;
+  --ocean-deep:   #020617;
+
+  /* Brand Accents */
+  --teal:         #14b8a6;
+  --teal-light:   #2dd4bf;
+  --sky:          #38bdf8;
+  --amber:        #fbbf24;
+  --red:          #f87171;
+  --green:        #4ade80;
+  --purple:       #a78bfa;
+
+  /* Typography */
+  --text:         #f8fafc;
+  --text-primary: #f8fafc;
+  --text-dim:     #cbd5e1;
+  --text-muted:   #94a3b8;
+
+  --card-shadow:  0 8px 30px rgba(0, 0, 0, 0.7);
+  --input-bg:     #030712;
+  --header-bg:    rgba(11, 17, 32, 0.94);
+}
+
+html {
+  background-color: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+:root body,
+[data-theme="default"] body,
+html.default body {
+  background-image:
+    radial-gradient(ellipse 120% 60% at 70% -10%, rgba(13,148,136,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 40% at 10% 90%, rgba(8,145,178,0.05) 0%, transparent 50%);
+}
+
+[data-theme="light"] body,
+html.light body {
+  background-color: #ffffff !important;
+  background-image: none !important;
+}
+
+[data-theme="light"] aside,
+html.light aside {
+  background-color: #ffffff !important;
+  border-right-color: #e2e8f0 !important;
+}
+
+[data-theme="light"] header,
+html.light header {
+  background-color: #ffffff !important;
+  border-bottom-color: #e2e8f0 !important;
+}
+
+[data-theme="light"] .card,
+html.light .card {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+}
+
+[data-theme="dark"] body,
+html.dark body {
+  background-image:
+    radial-gradient(ellipse 120% 60% at 70% -10%, rgba(20,184,166,0.05) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 40% at 10% 90%, rgba(56,189,248,0.04) 0%, transparent 50%);
+}
+
+* {
+  border-color: var(--border);
+}
+
+/* Native form elements dark/light scheme sync */
+[data-theme="light"] input,
+[data-theme="light"] textarea,
+[data-theme="light"] select,
+html.light input,
+html.light textarea,
+html.light select {
+  color-scheme: light;
+}
+
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select,
+html.dark input,
+html.dark textarea,
+html.dark select,
+[data-theme="default"] input,
+[data-theme="default"] textarea,
+[data-theme="default"] select,
+html.default input,
+html.default textarea,
+html.default select {
+  color-scheme: dark;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--card-shadow);
+  transition: background-color 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+}
+
+.card-hover {
+  transition: border-color 150ms, background 150ms, box-shadow 150ms;
+}
+
+.card-hover:hover {
+  border-color: var(--border2);
+  background: var(--surface2);
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.traffic-green  { background: var(--green); }
+.traffic-amber  { background: var(--amber); }
+.traffic-red    { background: var(--red); }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid;
+}
+
+.section-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.live-pulse {
+  animation: livePulse 2s ease-in-out infinite;
+}
+
+@keyframes livePulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* Leaflet custom map icon reset to prevent default white box/borders */
+.leaflet-div-icon.custom-map-icon,
+.custom-map-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* MarkerCluster icon container & animations */
+.cluster-icon-container {
+  background: transparent !important;
+  border: none !important;
+}
+.cluster-icon-container > div {
+  transition: transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.cluster-icon-container:hover > div {
+  transform: scale(1.12);
+}
+
+/* Prevent broken default Leaflet image replacement artefacts */
+.leaflet-marker-icon:not(.custom-map-icon) {
+  border: none;
+  outline: none;
+}

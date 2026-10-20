@@ -1,0 +1,6 @@
+{
+  "summary":  "Implementation plan to remove the visitor pages and components, migrate the interactive marine trail map into the Citizen Portal, update all routes and redirects to /dashboard/citizen, and set /dashboard/citizen as the default landing route.",
+  "updatedAt":  "2026-10-20T14:10:21.286492917Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

@@ -1,14 +1,13 @@
 import type { Metadata, Viewport } from 'next'
-import { Plus_Jakarta_Sans } from 'next/font/google'
 import PWARegister from '@/components/PWARegister'
+import OfflineBar from '@/components/offline/OfflineBar'
+import { ThemeProvider } from '@/components/theme-provider'
 import './globals.css'
+import 'leaflet/dist/leaflet.css'
+import 'leaflet.markercluster/dist/MarkerCluster.css'
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 
-const jakartaSans = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
-  variable: '--font-jakarta',
-  display: 'swap',
-})
+
 
 export const metadata: Metadata = {
   title: 'NDNP MPA-MES',
@@ -41,7 +40,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={jakartaSans.variable}>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta name="apple-mobile-web-app-capable"          content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -53,9 +52,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="msapplication-TileImage" content="/icons/icon-192.png" />
       </head>
       <body style={{ fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
-        {children}
-        {/* Register service worker + Background Sync listener */}
-        <PWARegister />
+        <ThemeProvider
+          attribute="data-theme"
+          defaultTheme="default"
+          enableSystem={false}
+          themes={['light', 'dark', 'default']}
+        >
+          <OfflineBar />
+          {children}
+          {/* Register service worker + Background Sync listener */}
+          <PWARegister />
+        </ThemeProvider>
       </body>
     </html>
   )

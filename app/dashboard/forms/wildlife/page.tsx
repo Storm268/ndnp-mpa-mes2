@@ -47,7 +47,7 @@ export default function WildlifeForm() {
       species_count: parseInt(speciesCount),
       behavior: behavior || null,
       gps_lat: parseFloat(gpsLat), gps_lng: parseFloat(gpsLng),
-      notes: notes || null,
+      description: notes || null,
       validation_status: 'pending',
       is_offline_sync: false,
     })

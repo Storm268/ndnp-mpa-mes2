@@ -111,7 +111,7 @@ export default function FishForm() {
             </thead>
             <tbody>
               {entries.map((en, i) => (
-                <tr key={i} style={{ borderBottom: '1px solid rgba(26,58,82,0.4)' }}>
+                <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
                   <td style={{ padding: '6px 8px' }}>
                     <select value={en.species} onChange={e => updateEntry(i, 'species', e.target.value)}
                       style={{ ...selectStyle, fontSize: '0.78rem', padding: '6px 8px' }}>

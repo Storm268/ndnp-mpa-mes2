@@ -115,7 +115,7 @@ export default async function OperationalDashboard() {
           </thead>
           <tbody>
             {(stations ?? []).map((s: Record<string, unknown>) => (
-              <tr key={String(s.id)} style={{ borderBottom: '1px solid rgba(26,58,82,0.5)' }}>
+              <tr key={String(s.id)} style={{ borderBottom: '1px solid var(--border)' }}>
                 <td style={{ padding: '10px 16px', fontWeight: 700, color: 'var(--sky)', fontSize: '0.75rem' }}>{String(s.station_code)}</td>
                 <td style={{ padding: '10px 16px', color: 'var(--text)' }}>{String(s.name)}</td>
                 <td style={{ padding: '10px 16px' }}>

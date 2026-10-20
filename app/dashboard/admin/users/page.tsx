@@ -100,9 +100,9 @@ export default function AdminUsersPage() {
 
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '10px 12px',
-    background: 'rgba(255,255,255,0.05)',
-    border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: '8px', color: '#e2f0f9',
+    background: 'var(--surface2)',
+    border: '1px solid var(--border)',
+    borderRadius: '8px', color: 'var(--text)',
     fontSize: '13px', outline: 'none', fontFamily: 'inherit',
   }
 
@@ -111,8 +111,8 @@ export default function AdminUsersPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '28px' }}>
         <div>
-          <h1 style={{ fontSize: '22px', fontWeight: '800', color: '#fff', letterSpacing: '-0.3px', marginBottom: '4px' }}>User Management</h1>
-          <p style={{ fontSize: '13px', color: '#5a7d94' }}>Create and manage park staff and citizen accounts</p>
+          <h1 style={{ fontSize: '22px', fontWeight: '800', color: 'var(--text)', letterSpacing: '-0.3px', marginBottom: '4px' }}>User Management</h1>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Create and manage park staff and citizen accounts</p>
         </div>
         <button onClick={() => { setShowForm(true); setError(''); setSuccess('') }}
           style={{ padding: '10px 20px', background: 'linear-gradient(135deg, #00bcd4, #0077a8)', border: 'none', borderRadius: '9px', color: '#fff', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '7px' }}>
@@ -127,31 +127,31 @@ export default function AdminUsersPage() {
 
       {/* Create User Form */}
       {showForm && (
-        <div style={{ marginBottom: '28px', background: 'rgba(0,188,212,0.05)', border: '1px solid rgba(0,188,212,0.2)', borderRadius: '14px', padding: '24px' }}>
+        <div style={{ marginBottom: '28px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '14px', padding: '24px', boxShadow: 'var(--card-shadow)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: '700', color: '#fff' }}>Create New User</h2>
-            <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', color: '#5a7d94', cursor: 'pointer', fontSize: '20px' }}>×</button>
+            <h2 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text)' }}>Create New User</h2>
+            <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '20px' }}>×</button>
           </div>
           <form onSubmit={handleCreate}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#7aa3be', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '5px' }}>Full Name</label>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '5px' }}>Full Name</label>
                 <input style={inputStyle} placeholder="Dr. Jane Smith" value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#7aa3be', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '5px' }}>Email *</label>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '5px' }}>Email *</label>
                 <input required type="email" style={inputStyle} placeholder="staff@park.gov" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#7aa3be', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '5px' }}>Password *</label>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '5px' }}>Password *</label>
                 <input required type="password" style={inputStyle} placeholder="Min. 8 characters" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#7aa3be', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '5px' }}>Phone</label>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '5px' }}>Phone</label>
                 <input style={inputStyle} placeholder="+1 (000) 000-0000" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
               </div>
               <div style={{ gridColumn: '1/-1' }}>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#7aa3be', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '5px' }}>Role *</label>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '5px' }}>Role *</label>
                 <select required style={{ ...inputStyle, cursor: 'pointer' }} value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value as UserRole }))}>
                   {Object.entries(ROLE_LABELS).map(([k, v]) => (
                     <option key={k} value={k}>{v}</option>
@@ -165,7 +165,7 @@ export default function AdminUsersPage() {
                 {creating ? 'Creating...' : 'Create User'}
               </button>
               <button type="button" onClick={() => setShowForm(false)}
-                style={{ padding: '10px 20px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#7aa3be', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                style={{ padding: '10px 20px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-dim)', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit' }}>
                 Cancel
               </button>
             </div>
@@ -181,9 +181,9 @@ export default function AdminUsersPage() {
           { label: 'Staff', value: users.filter(u => u.role !== 'citizen').length, color: '#f59e0b' },
           { label: 'Citizens', value: users.filter(u => u.role === 'citizen').length, color: '#84cc16' },
         ].map(s => (
-          <div key={s.label} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+          <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '16px', textAlign: 'center', boxShadow: 'var(--card-shadow)' }}>
             <div style={{ fontSize: '22px', fontWeight: '800', color: s.color, marginBottom: '4px' }}>{s.value}</div>
-            <div style={{ fontSize: '11px', color: '#5a7d94', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{s.label}</div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{s.label}</div>
           </div>
         ))}
       </div>
@@ -196,23 +196,23 @@ export default function AdminUsersPage() {
 
       {/* Users Table */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '40px', color: '#5a7d94', fontSize: '13px' }}>Loading users...</div>
+        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '13px' }}>Loading users...</div>
       ) : (
-        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', overflow: 'hidden' }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '14px', overflow: 'hidden', boxShadow: 'var(--card-shadow)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
                 {['User', 'Role', 'Phone', 'Last Login', 'Status', 'Actions'].map(h => (
-                  <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', fontWeight: '700', color: '#5a7d94', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</th>
+                  <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.map(u => (
-                <tr key={u.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <tr key={u.id} style={{ borderBottom: '1px solid var(--border)' }}>
                   <td style={{ padding: '14px 16px' }}>
-                    <div style={{ fontSize: '13px', fontWeight: '600', color: '#e2f0f9', marginBottom: '2px' }}>{u.full_name || '—'}</div>
-                    <div style={{ fontSize: '12px', color: '#5a7d94' }}>{u.email}</div>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text)', marginBottom: '2px' }}>{u.full_name || '—'}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{u.email}</div>
                   </td>
                   <td style={{ padding: '14px 16px' }}>
                     <select value={u.role} onChange={e => changeRole(u.id, e.target.value as UserRole)}
@@ -220,8 +220,8 @@ export default function AdminUsersPage() {
                       {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                     </select>
                   </td>
-                  <td style={{ padding: '14px 16px', fontSize: '12px', color: '#7aa3be' }}>{u.phone || '—'}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '12px', color: '#5a7d94' }}>
+                  <td style={{ padding: '14px 16px', fontSize: '12px', color: 'var(--text-dim)' }}>{u.phone || '—'}</td>
+                  <td style={{ padding: '14px 16px', fontSize: '12px', color: 'var(--text-muted)' }}>
                     {u.last_login ? new Date(u.last_login).toLocaleDateString() : 'Never'}
                   </td>
                   <td style={{ padding: '14px 16px' }}>
@@ -231,7 +231,7 @@ export default function AdminUsersPage() {
                   </td>
                   <td style={{ padding: '14px 16px' }}>
                     <button onClick={() => toggleActive(u.id, u.is_active)}
-                      style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#7aa3be' }}>
+                      style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit', border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text-dim)' }}>
                       {u.is_active ? 'Deactivate' : 'Activate'}
                     </button>
                   </td>
@@ -240,7 +240,7 @@ export default function AdminUsersPage() {
             </tbody>
           </table>
           {filtered.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#5a7d94', fontSize: '13px' }}>No users found</div>
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '13px' }}>No users found</div>
           )}
         </div>
       )}

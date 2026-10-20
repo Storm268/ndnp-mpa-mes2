@@ -256,7 +256,7 @@ export default function AuditPage() {
                 const ts = new Date(e.created_at)
 
                 return (
-                  <tr key={e.id} style={{ borderBottom:'1px solid rgba(26,58,82,0.4)', background: i % 2 === 0 ? 'transparent' : 'rgba(13,32,53,0.3)', transition:'background 150ms' }}>
+                  <tr key={e.id} style={{ borderBottom:'1px solid var(--border)', background: i % 2 === 0 ? 'transparent' : 'var(--surface2)', transition:'background 150ms' }}>
 
                     {/* Timestamp */}
                     <td style={{ padding:'8px 12px', whiteSpace:'nowrap', fontFamily:'DM Mono,monospace', fontSize:'0.68rem', color:'var(--text-muted)' }}>

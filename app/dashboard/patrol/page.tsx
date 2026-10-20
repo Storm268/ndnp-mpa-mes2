@@ -128,7 +128,7 @@ export default async function PatrolDashboard() {
             ) : (recentPatrols ?? []).map((p: Record<string, unknown>) => {
               const profile = p.profiles as Record<string, string> | null
               return (
-                <tr key={String(p.id)} style={{ borderBottom: '1px solid rgba(26,58,82,0.5)' }}>
+                <tr key={String(p.id)} style={{ borderBottom: '1px solid var(--border)' }}>
                   <td style={{ padding: '10px 14px', color: 'var(--text)', fontWeight: 500 }}>{profile?.full_name ?? 'Ranger'}</td>
                   <td style={{ padding: '10px 14px' }}><PatrolTypeBadge type={String(p.patrol_type)} /></td>
                   <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>{typeof p.sector === 'string' ? p.sector : '—'}</td>
