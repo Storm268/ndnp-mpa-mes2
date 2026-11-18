@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { FormShell, FieldGroup, Field, inputStyle, selectStyle } from '@/components/forms/FormShell'
 import { GPSCapture } from '@/components/forms/GPSCapture'
+import { audit } from '@/lib/audit/log-action'
 
 export default function PatrolForm() {
   const [patrolType, setPatrolType] = useState('')
@@ -36,24 +37,54 @@ export default function PatrolForm() {
     const sb = createClient()
     const { data: { user } } = await sb.auth.getUser()
     if (!user) { setSubmitError('Not logged in'); setLoading(false); return }
-    const { error } = await sb.from('patrol_logs').insert({
-      ranger_id: user.id,
-      patrol_type: patrolType,
-      sector: sector || null,
-      start_lat: parseFloat(startLat), start_lng: parseFloat(startLng),
-      end_lat: endLat ? parseFloat(endLat) : null,
-      end_lng: endLng ? parseFloat(endLng) : null,
-      start_time: startTime,
-      end_time: endTime || null,
-      violations: parseInt(violations) || 0,
-      warnings: parseInt(warnings) || 0,
-      fuel_used_l: fuelUsed ? parseFloat(fuelUsed) : null,
-      vessel_id: vesselId || null,
-      incident_notes: incidentNotes || null,
-      is_active: !endTime,
-      is_offline_sync: false,
-    })
+    const violationCount = parseInt(violations) || 0
+    const trimmedNotes = incidentNotes.trim()
+    const latNum = parseFloat(startLat)
+    const lngNum = parseFloat(startLng)
+
+    const { data: insertedPatrol, error } = await sb
+      .from('patrol_logs')
+      .insert({
+        ranger_id: user.id,
+        patrol_type: patrolType,
+        sector: sector || null,
+        start_lat: latNum, start_lng: lngNum,
+        end_lat: endLat ? parseFloat(endLat) : null,
+        end_lng: endLng ? parseFloat(endLng) : null,
+        start_time: startTime,
+        end_time: endTime || null,
+        violations: violationCount,
+        warnings: parseInt(warnings) || 0,
+        fuel_used_l: fuelUsed ? parseFloat(fuelUsed) : null,
+        vessel_id: vesselId || null,
+        incident_notes: trimmedNotes || null,
+        is_active: !endTime,
+        is_offline_sync: false,
+      })
+      .select('id')
+      .single()
+
     if (error) { setSubmitError(error.message); setLoading(false); return }
+
+    if (violationCount > 0 || trimmedNotes.length > 0) {
+      try {
+        await fetch('/api/alerts/trigger', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            alert_type: 'patrol_incident',
+            title: `Patrol Incident${sector ? ` — ${sector}` : ''}`,
+            message: `${patrolType.toUpperCase()} patrol logged ${violationCount} violation(s)${trimmedNotes ? `: ${trimmedNotes}` : ` at GPS ${startLat}, ${startLng}`}.`,
+            gps_lat: latNum,
+            gps_lng: lngNum,
+            related_record_id: insertedPatrol?.id ?? null,
+            related_table: 'patrol_logs',
+          }),
+        })
+      } catch { /* non-blocking alert */ }
+    }
+
+    await audit.formSubmit('patrol_logs', insertedPatrol?.id ?? '', `Patrol Log (${patrolType})`)
     setSuccess(true); setLoading(false)
     setPatrolType(''); setSector(''); setStartLat(''); setStartLng('')
     setEndLat(''); setEndLng(''); setStartTime(''); setEndTime('')

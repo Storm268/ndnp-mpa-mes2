@@ -1,7 +1,7 @@
 'use client'
 import { useState, useCallback, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { ACTION_LABELS, TABLE_LABELS } from '@/lib/audit/log-action'
+import { ACTION_LABELS, TABLE_LABELS, audit } from '@/lib/audit/log-action'
 
 type AuditEntry = {
   id: string
@@ -28,12 +28,15 @@ const ACTION_COLORS: Record<string,string> = {
   permission_change:   '#f97316',
   user_created:        '#0d9488',
   validation_decision: '#6366f1',
+  report_downloaded:   '#0891b2',
+  data_export:         '#0284c7',
+  form_submit:         '#10b981',
 }
 
 const ROLE_LABELS: Record<string,string> = {
   system_admin: 'Sys Admin', park_manager: 'Manager',
   scientist: 'Scientist', ranger: 'Ranger',
-  read_only: 'Read-Only', visitor: 'Visitor',
+  read_only: 'Read-Only', visitor: 'Visitor', citizen: 'Citizen',
 }
 
 const PAGE_SIZE = 50
@@ -80,9 +83,20 @@ export default function AuditPage() {
       .order('created_at', { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
-    if (filterUser)   q = q.ilike('user_email', `%${filterUser}%`)
-    if (filterAction) q = q.eq('action_type', filterAction)
-    if (filterTable)  q = q.eq('table_name', filterTable)
+    if (filterUser) q = q.ilike('user_email', `%${filterUser}%`)
+    if (filterAction === 'report_downloaded') {
+      q = q.eq('action_type', 'create').eq('table_name', 'reports')
+    } else if (filterAction === 'data_export') {
+      q = q.eq('action_type', 'create').eq('table_name', 'audit_log')
+    } else if (filterAction === 'form_submit') {
+      q = q.eq('action_type', 'create').in('table_name', [
+        'coral_surveys', 'fish_surveys', 'heritage_assessments',
+        'patrol_logs', 'water_quality', 'visitor_surveys', 'citizen_science_reports',
+      ])
+    } else if (filterAction) {
+      q = q.eq('action_type', filterAction)
+    }
+    if (filterTable) q = q.eq('table_name', filterTable)
 
     const { data, count, error } = await q
     if (!error) {
@@ -113,9 +127,20 @@ export default function AuditPage() {
     const startIso = new Date(startDate).toISOString()
     const endIso   = new Date(endDate + 'T23:59:59').toISOString()
     let q = sb.from('audit_log').select('*').gte('created_at', startIso).lte('created_at', endIso).order('created_at', { ascending: false }).limit(10000)
-    if (filterUser)   q = q.ilike('user_email', `%${filterUser}%`)
-    if (filterAction) q = q.eq('action_type', filterAction)
-    if (filterTable)  q = q.eq('table_name', filterTable)
+    if (filterUser) q = q.ilike('user_email', `%${filterUser}%`)
+    if (filterAction === 'report_downloaded') {
+      q = q.eq('action_type', 'create').eq('table_name', 'reports')
+    } else if (filterAction === 'data_export') {
+      q = q.eq('action_type', 'create').eq('table_name', 'audit_log')
+    } else if (filterAction === 'form_submit') {
+      q = q.eq('action_type', 'create').in('table_name', [
+        'coral_surveys', 'fish_surveys', 'heritage_assessments',
+        'patrol_logs', 'water_quality', 'visitor_surveys', 'citizen_science_reports',
+      ])
+    } else if (filterAction) {
+      q = q.eq('action_type', filterAction)
+    }
+    if (filterTable) q = q.eq('table_name', filterTable)
     const { data } = await q
     if (!data) return
 
@@ -138,6 +163,8 @@ export default function AuditPage() {
     const a    = document.createElement('a'); a.href = url
     a.download = `NDNP-AuditLog-${startDate}-${endDate}.csv`
     a.click(); URL.revokeObjectURL(url)
+    await audit.dataExported('audit_log', `Audit log exported to CSV (${startDate} to ${endDate})`, { period_start: startDate, period_end: endDate })
+    fetchEntries()
   }
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
@@ -207,7 +234,9 @@ export default function AuditPage() {
         <select value={filterAction} onChange={e => { setFilterAction(e.target.value); setPage(0) }}
           style={{ ...S, minWidth:'160px', cursor:'pointer' }}>
           <option value="">All action types</option>
-          {Object.entries(ACTION_LABELS).slice(0,10).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
+          {Object.entries(ACTION_LABELS)
+            .filter(([k]) => !['alert_acknowledged', 'alert_resolved'].includes(k))
+            .map(([k,v]) => <option key={k} value={k}>{v}</option>)}
         </select>
 
         <select value={filterTable} onChange={e => { setFilterTable(e.target.value); setPage(0) }}
@@ -249,8 +278,15 @@ export default function AuditPage() {
             </thead>
             <tbody>
               {entries.map((e, i) => {
-                const actionColor = ACTION_COLORS[e.action_type] ?? 'var(--text-muted)'
-                const actionLabel = ACTION_LABELS[e.action_type] ?? e.action_type
+                const eventType = typeof e.after_value?.event_type === 'string'
+                  ? e.after_value.event_type
+                  : (e.table_name === 'reports' && e.action_type === 'create'
+                      ? 'report_downloaded'
+                      : e.table_name === 'audit_log' && e.action_type === 'create'
+                        ? 'data_export'
+                        : e.action_type)
+                const actionColor = ACTION_COLORS[eventType] ?? ACTION_COLORS[e.action_type] ?? 'var(--text-muted)'
+                const actionLabel = ACTION_LABELS[eventType] ?? ACTION_LABELS[e.action_type] ?? e.action_type
                 const tableLabel  = TABLE_LABELS[e.table_name ?? ''] ?? e.table_name ?? '—'
                 const description = String(e.after_value?.description ?? '')
                 const ts = new Date(e.created_at)

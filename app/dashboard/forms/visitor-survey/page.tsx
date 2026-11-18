@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { FormShell, FieldGroup, Field, inputStyle, selectStyle } from '@/components/forms/FormShell'
+import { audit } from '@/lib/audit/log-action'
 
 const ACTIVITIES = [
   'Snorkelling','Scuba Diving','Kayaking / Paddleboarding','Glass-bottom Boat Tour',
@@ -46,7 +47,7 @@ export default function VisitorSurveyForm() {
     setLoading(true); setSubmitError(null); setSuccess(false)
     const sb = createClient()
     const { data: { user } } = await sb.auth.getUser()
-    const { error } = await sb.from('visitor_surveys').insert({
+    const { data: inserted, error } = await sb.from('visitor_surveys').insert({
       surveyor_id: user?.id ?? null,
       country_of_origin: countryOfOrigin,
       activities: selectedActivities,
@@ -56,8 +57,9 @@ export default function VisitorSurveyForm() {
       conservation_awareness: conservationAwareness,
       comments: comments || null,
       is_offline_sync: false, surveyed_at: new Date().toISOString(),
-    })
+    }).select('id').single()
     if (error) { setSubmitError(error.message); setLoading(false); return }
+    await audit.formSubmit('visitor_surveys', inserted?.id ?? '', 'Visitor Survey')
     setSuccess(true); setLoading(false)
     setCountry(''); setActivities([]); setExpenditure(''); setStayDays(''); setSatisfaction(0)
     setConservationAwareness(null); setComments('')

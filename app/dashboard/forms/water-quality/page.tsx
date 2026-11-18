@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { FormShell, FieldGroup, Field, inputStyle, selectStyle } from '@/components/forms/FormShell'
 import { GPSCapture } from '@/components/forms/GPSCapture'
+import { audit } from '@/lib/audit/log-action'
 
 export default function WaterQualityForm() {
   const [stations, setStations] = useState<{id: string; station_code: string; name: string}[]>([])
@@ -49,7 +50,7 @@ export default function WaterQualityForm() {
     const { data: { user } } = await sb.auth.getUser()
     if (!user) { setSubmitError('Not logged in'); setLoading(false); return }
     const compliance = complianceStatus || deriveCompliance(ph, doMgl, tempC) || null
-    const { error } = await sb.from('water_quality').insert({
+    const { data: inserted, error } = await sb.from('water_quality').insert({
       station_id: stationId, collector_id: user.id,
       ph: ph ? parseFloat(ph) : null,
       do_mgl: doMgl ? parseFloat(doMgl) : null,
@@ -63,8 +64,9 @@ export default function WaterQualityForm() {
       gps_lng: gpsLng ? parseFloat(gpsLng) : null,
       sampled_at: sampledAt || new Date().toISOString(),
       is_offline_sync: false,
-    })
+    }).select('id').single()
     if (error) { setSubmitError(error.message); setLoading(false); return }
+    await audit.formSubmit('water_quality', inserted?.id ?? '', 'Water Quality Sample')
     setSuccess(true); setLoading(false)
     setStationId(''); setPh(''); setDoMgl(''); setTempC(''); setSalinityPpt('')
     setTurbidityNtu(''); setSampleBottleId(''); setChainOfCustody(''); setComplianceStatus(''); setGpsLat(''); setGpsLng('')

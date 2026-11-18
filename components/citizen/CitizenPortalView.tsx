@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { signOutAndRedirect } from '@/lib/supabase/auth-helpers'
 import { ThemeToggle } from '@/components/theme-toggle'
 import InteractiveMapLoader from '@/components/citizen/InteractiveMapLoader'
 import GeofenceAlertBanner from '@/components/citizen/GeofenceAlertBanner'
@@ -59,6 +59,8 @@ interface CitizenReportItem {
 
 const STATUS_COLORS: Record<string, string> = {
   pending: '#f59e0b',
+  approved: '#10b981',
+  rejected: '#ef4444',
   under_review: '#00bcd4',
   resolved: '#10b981',
   dismissed: '#6b7280',
@@ -74,90 +76,18 @@ interface CitizenPortalViewProps {
 }
 
 export default function CitizenPortalView({ isDashboard = false }: CitizenPortalViewProps) {
-  const router = useRouter()
   const { isOnline, pendingCount, isSyncing, triggerSync } = useOffline()
   const [activeTab, setActiveTab] = useState<PortalTab>('map')
   const [user, setUser] = useState<{ email: string; full_name: string; role?: string } | null>(null)
   const [visitorProfile, setVisitorProfile] = useState<VisitorProfile | null>(null)
   const [reports, setReports] = useState<CitizenReportItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [reportFilter, setReportFilter] = useState<'all' | 'pending' | 'under_review' | 'resolved'>('all')
+  const [reportFilter, setReportFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all')
   const [showSurvey, setShowSurvey] = useState(false)
   const [selectedGuideType, setSelectedGuideType] = useState<'heritage' | 'species'>('heritage')
 
   // Load user & reports
   useEffect(() => {
-    async function loadPortalData() {
-      const profile = getVisitorProfile()
-      setVisitorProfile(profile)
-
-      try {
-        const supabase = createClient()
-        const { data: { user: u } } = await supabase.auth.getUser()
-
-        if (u) {
-          const { data: userProfile } = await supabase
-            .from('profiles')
-            .select('full_name, email, role')
-            .eq('id', u.id)
-            .single()
-
-          setUser({
-            email: userProfile?.email || u.email || '',
-            full_name: userProfile?.full_name || 'Citizen Steward',
-            role: userProfile?.role,
-          })
-
-          // Fetch reports from Supabase
-          const { data: reps } = await supabase
-            .from('citizen_science_reports')
-            .select('id, report_type, incident_type, species_type, severity, validation_status, created_at, description')
-            .eq('reporter_id', u.id)
-            .order('created_at', { ascending: false })
-
-          const onlineReps: CitizenReportItem[] = (reps || []).map((r) => {
-            const displayTitle = r.incident_type
-              ? r.incident_type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
-              : r.species_type || (r.report_type === 'wildlife_sighting' ? 'Wildlife Sighting' : 'Incident Report')
-            return {
-              id: r.id,
-              title: displayTitle,
-              report_type: r.report_type,
-              severity: r.severity || 2,
-              status: r.validation_status || 'pending',
-              created_at: r.created_at,
-              description: r.description || '',
-              source: 'supabase',
-            }
-          })
-
-          // Also merge any local offline reports
-          const offlineReps = await loadOfflineReports()
-          setReports([...onlineReps, ...offlineReps])
-        } else {
-          // Guest mode: load offline / local reports
-          setUser({
-            email: 'citizen-guest@ndnp-mpa.gov',
-            full_name: 'Guest Citizen Steward',
-            role: 'citizen',
-          })
-          const offlineReps = await loadOfflineReports()
-          setReports(offlineReps)
-        }
-      } catch (err) {
-        console.warn('CitizenPortalView load error (offline fallback):', err)
-        setUser({
-          email: 'citizen-offline@ndnp-mpa.gov',
-          full_name: 'Offline Citizen Steward',
-          role: 'citizen',
-        })
-        const offlineReps = await loadOfflineReports()
-        setReports(offlineReps)
-      } finally {
-        setLoading(false)
-      }
-    }
-
     async function loadOfflineReports(): Promise<CitizenReportItem[]> {
       try {
         const offline = await getAllReports()
@@ -176,21 +106,81 @@ export default function CitizenPortalView({ isDashboard = false }: CitizenPortal
       }
     }
 
+    async function loadPortalData() {
+      const profile = getVisitorProfile()
+      setVisitorProfile(profile)
+
+      try {
+        const supabase = createClient()
+        const [{ data: { user: u } }, { data: { session } }] = await Promise.all([
+          supabase.auth.getUser(),
+          supabase.auth.getSession(),
+        ])
+
+        if (u) {
+          const { data: userProfile } = await supabase
+            .from('profiles')
+            .select('full_name, email, role')
+            .eq('id', u.id)
+            .maybeSingle()
+
+          setUser({
+            email: userProfile?.email || u.email || '',
+            full_name: userProfile?.full_name || u.email || 'Citizen Steward',
+            role: userProfile?.role,
+          })
+
+          // Fetch reports via server endpoint so attribution & resolved alerts sync cleanly
+          let onlineReps: CitizenReportItem[] = []
+          try {
+            const res = await fetch('/api/reports/status', {
+              cache: 'no-store',
+              headers: session?.access_token
+                ? { Authorization: `Bearer ${session.access_token}` }
+                : undefined,
+            })
+            if (res.ok) {
+              const json = await res.json()
+              onlineReps = ((json.reports ?? []) as CitizenReportItem[]).map((r) => ({
+                id: r.id,
+                title: r.title,
+                report_type: r.report_type,
+                severity: r.severity || 2,
+                status: r.status || 'pending',
+                created_at: r.created_at,
+                description: r.description || '',
+                source: 'supabase',
+              }))
+            }
+          } catch {}
+
+          const offlineReps = await loadOfflineReports()
+          setReports([...onlineReps, ...offlineReps])
+        } else {
+          setUser(null)
+          const offlineReps = await loadOfflineReports()
+          setReports(offlineReps)
+        }
+      } catch (err) {
+        console.warn('CitizenPortalView load error (offline fallback):', err)
+        setUser(null)
+        const offlineReps = await loadOfflineReports()
+        setReports(offlineReps)
+      } finally {
+        setLoading(false)
+      }
+    }
+
     loadPortalData()
   }, [])
 
   async function handleSignOut() {
-    try {
-      const supabase = createClient()
-      await supabase.auth.signOut()
-    } catch {
-      // ignore
-    }
-    router.push('/')
+    await signOutAndRedirect('/')
   }
 
   const filteredReports = reports.filter((r) => {
     if (reportFilter === 'all') return true
+    if (reportFilter === 'approved') return r.status === 'approved' || r.status === 'resolved'
     return r.status === reportFilter
   })
 
@@ -324,49 +314,82 @@ export default function CitizenPortalView({ isDashboard = false }: CitizenPortal
 
           <ThemeToggle />
 
-          {user && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '4px 10px',
-                background: 'var(--surface)',
-                border: '1px solid var(--border)',
-                borderRadius: '6px',
-                fontSize: '12px',
-                color: 'var(--text-dim)',
-                marginLeft: '6px',
-              }}
-            >
-              <User size={13} color="var(--teal)" />
-              <span>{user.full_name}</span>
+          {user ? (
+            <>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 10px',
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  color: 'var(--text-dim)',
+                  marginLeft: '6px',
+                }}
+              >
+                <User size={13} color="var(--teal)" />
+                <span>{user.full_name}</span>
+              </div>
+
+              <button
+                onClick={handleSignOut}
+                title="Sign out of account"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '7px 12px',
+                  borderRadius: '8px',
+                  background: 'var(--surface2)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text)',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  marginLeft: '4px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <LogOut size={13} />
+                <span>Sign Out</span>
+              </button>
+            </>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '4px' }}>
+              <Link
+                href="/login"
+                style={{
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #00bcd4, #0077a8)',
+                  color: '#ffffff',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  textDecoration: 'none',
+                }}
+              >
+                Citizen &amp; Staff Sign In
+              </Link>
+              <Link
+                href="/register"
+                style={{
+                  padding: '7px 12px',
+                  borderRadius: '8px',
+                  background: 'var(--surface2)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text)',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                }}
+              >
+                Register
+              </Link>
             </div>
           )}
-
-          {/* Sign Out Button */}
-          <button
-            onClick={handleSignOut}
-            title="Sign out of account"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '7px 12px',
-              borderRadius: '8px',
-              background: 'var(--surface2)',
-              border: '1px solid var(--border)',
-              color: 'var(--text)',
-              fontSize: '12px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              marginLeft: '4px',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <LogOut size={13} />
-            <span>Sign Out</span>
-          </button>
 
           {/* Exit Button */}
           <Link
@@ -413,7 +436,7 @@ export default function CitizenPortalView({ isDashboard = false }: CitizenPortal
         <div style={{ display: 'flex', gap: '4px' }}>
           {[
             { id: 'map', label: 'Interactive Marine & Trail Map', icon: MapIcon, badge: 'Full Access' },
-            { id: 'reports', label: 'My Reports & Submissions', icon: Camera, count: reports.length },
+            ...(user ? [{ id: 'reports', label: 'My Reports & Submissions', icon: Camera, count: reports.length }] : []),
             { id: 'guides', label: 'Heritage & Marine Guides', icon: Landmark },
             { id: 'geofence', label: 'Sanctuary Geofence & Rules', icon: Shield },
             { id: 'pass', label: 'Digital Conservation Pass', icon: QrCode },
@@ -587,9 +610,9 @@ export default function CitizenPortalView({ isDashboard = false }: CitizenPortal
               </div>
 
               <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '16px', boxShadow: 'var(--card-shadow)' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Verified / Resolved</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Accepted</div>
                 <div style={{ fontSize: '24px', fontWeight: 800, color: '#10b981' }}>
-                  {reports.filter((r) => r.status === 'resolved').length}
+                  {reports.filter((r) => r.status === 'approved' || r.status === 'resolved').length}
                 </div>
               </div>
 
@@ -607,7 +630,7 @@ export default function CitizenPortalView({ isDashboard = false }: CitizenPortal
               <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <Filter size={13} /> Filter:
               </span>
-              {(['all', 'pending', 'under_review', 'resolved'] as const).map((st) => (
+              {(['all', 'pending', 'approved', 'rejected'] as const).map((st) => (
                 <button
                   key={st}
                   onClick={() => setReportFilter(st)}
@@ -623,7 +646,7 @@ export default function CitizenPortalView({ isDashboard = false }: CitizenPortal
                     textTransform: 'capitalize',
                   }}
                 >
-                  {st.replace(/_/g, ' ')}
+                  {st === 'approved' ? 'Accepted' : st.replace(/_/g, ' ')}
                 </button>
               ))}
             </div>

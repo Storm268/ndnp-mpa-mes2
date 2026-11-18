@@ -1,6 +1,7 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Plus, Search, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ROLE_LABELS, type UserRole } from '@/lib/supabase/client'
 
@@ -36,67 +37,114 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState('')
   const [form, setForm] = useState({ email: '', password: '', full_name: '', role: 'ranger' as UserRole, phone: '' })
 
+  const fetchUsers = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/admin/users', { cache: 'no-store' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        if (res.status === 401) { router.push('/'); return }
+        if (res.status === 403) { router.push('/dashboard/operational'); return }
+        setError(data.error || 'Failed to load users')
+        setUsers([])
+        return
+      }
+      setUsers(Array.isArray(data.users) ? data.users : [])
+    } catch {
+      setError('Failed to connect to user directory')
+      setUsers([])
+    } finally {
+      setLoading(false)
+    }
+  }, [router])
+
   useEffect(() => {
-    async function check() {
+    let active = true
+    async function init() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/'); return }
       const { data: p } = await supabase.from('profiles').select('role').eq('id', user.id).single()
       if (p?.role !== 'system_admin') { router.push('/dashboard/operational'); return }
+      if (active) {
+        await fetchUsers()
+      }
     }
-    check()
-    fetchUsers()
-  }, [router])
-
-  async function fetchUsers() {
-    setLoading(true)
-    const res = await fetch('/api/admin/users')
-    const data = await res.json()
-    setUsers(data.users || [])
-    setLoading(false)
-  }
+    init()
+    return () => { active = false }
+  }, [router, fetchUsers])
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     setError(''); setSuccess('')
     if (form.password.length < 8) { setError('Password must be at least 8 characters'); return }
     setCreating(true)
-    const res = await fetch('/api/admin/create-user', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
-    })
-    const data = await res.json()
-    if (!res.ok) { setError(data.error || 'Failed to create user'); setCreating(false); return }
-    setSuccess(`User ${form.email} created successfully!`)
-    setForm({ email: '', password: '', full_name: '', role: 'ranger', phone: '' })
-    setShowForm(false)
-    setCreating(false)
-    fetchUsers()
+    try {
+      const res = await fetch('/api/admin/create-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { setError(data.error || 'Failed to create user'); setCreating(false); return }
+      setSuccess(`User ${form.email} created successfully!`)
+      setForm({ email: '', password: '', full_name: '', role: 'ranger', phone: '' })
+      setShowForm(false)
+      await fetchUsers()
+    } catch {
+      setError('Network error while creating user')
+    } finally {
+      setCreating(false)
+    }
   }
 
   async function toggleActive(userId: string, isActive: boolean) {
-    await fetch('/api/admin/users', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId, is_active: !isActive }),
-    })
-    fetchUsers()
+    setError(''); setSuccess('')
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, is_active: !isActive }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { setError(data.error || 'Failed to update user status'); return }
+      setSuccess(`User ${!isActive ? 'activated' : 'deactivated'} successfully`)
+      await fetchUsers()
+    } catch {
+      setError('Network error while updating user status')
+    }
   }
 
   async function changeRole(userId: string, role: UserRole) {
-    await fetch('/api/admin/users', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId, role }),
-    })
-    fetchUsers()
+    setError(''); setSuccess('')
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, role }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { setError(data.error || 'Failed to update user role'); return }
+      setSuccess(`Role updated to ${ROLE_LABELS[role] || role}`)
+      await fetchUsers()
+    } catch {
+      setError('Network error while updating user role')
+    }
   }
 
-  const filtered = users.filter(u =>
-    u.email?.toLowerCase().includes(search.toLowerCase()) ||
-    u.full_name?.toLowerCase().includes(search.toLowerCase())
-  )
+  const normalizedSearch = search.trim().toLowerCase()
+  const filtered = normalizedSearch
+    ? users.filter(u => {
+        const roleLabel = (ROLE_LABELS[u.role] || u.role || '').toLowerCase()
+        return (
+          (u.email || '').toLowerCase().includes(normalizedSearch) ||
+          (u.full_name || '').toLowerCase().includes(normalizedSearch) ||
+          (u.phone || '').toLowerCase().includes(normalizedSearch) ||
+          (u.role || '').toLowerCase().includes(normalizedSearch) ||
+          roleLabel.includes(normalizedSearch)
+        )
+      })
+    : users
 
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '10px 12px',
@@ -116,7 +164,7 @@ export default function AdminUsersPage() {
         </div>
         <button onClick={() => { setShowForm(true); setError(''); setSuccess('') }}
           style={{ padding: '10px 20px', background: 'linear-gradient(135deg, #00bcd4, #0077a8)', border: 'none', borderRadius: '9px', color: '#fff', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '7px' }}>
-          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
+          <Plus size={15} strokeWidth={2.5} />
           Create User
         </button>
       </div>
@@ -177,21 +225,45 @@ export default function AdminUsersPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px', marginBottom: '24px' }}>
         {[
           { label: 'Total Users', value: users.length, color: '#00bcd4' },
-          { label: 'Active', value: users.filter(u => u.is_active).length, color: '#10b981' },
+          { label: 'Active', value: users.filter(u => u.is_active !== false).length, color: '#10b981' },
           { label: 'Staff', value: users.filter(u => u.role !== 'citizen').length, color: '#f59e0b' },
           { label: 'Citizens', value: users.filter(u => u.role === 'citizen').length, color: '#84cc16' },
         ].map(s => (
           <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '16px', textAlign: 'center', boxShadow: 'var(--card-shadow)' }}>
-            <div style={{ fontSize: '22px', fontWeight: '800', color: s.color, marginBottom: '4px' }}>{s.value}</div>
+            <div style={{ fontSize: '22px', fontWeight: '800', color: s.color, marginBottom: '4px' }}>{loading ? '—' : s.value}</div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{s.label}</div>
           </div>
         ))}
       </div>
 
       {/* Search */}
-      <div style={{ marginBottom: '16px' }}>
-        <input style={{ ...inputStyle, width: '280px' }} placeholder="Search by name or email..."
-          value={search} onChange={e => setSearch(e.target.value)} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+        <div style={{ position: 'relative', width: '320px', maxWidth: '100%' }}>
+          <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+          <input
+            style={{ ...inputStyle, width: '100%', paddingLeft: '34px', paddingRight: search ? '32px' : '12px' }}
+            placeholder="Search by name, email, phone, or role..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          {search && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setSearch('')}
+              style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+        {!loading && (
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+            {normalizedSearch
+              ? `Showing ${filtered.length} of ${users.length} users`
+              : `${users.length} ${users.length === 1 ? 'user' : 'users'} total`}
+          </div>
+        )}
       </div>
 
       {/* Users Table */}
@@ -240,7 +312,9 @@ export default function AdminUsersPage() {
             </tbody>
           </table>
           {filtered.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '13px' }}>No users found</div>
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '13px' }}>
+              {normalizedSearch ? `No users match "${search.trim()}"` : 'No users found'}
+            </div>
           )}
         </div>
       )}

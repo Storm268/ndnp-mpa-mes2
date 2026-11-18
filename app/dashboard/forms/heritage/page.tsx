@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { FormShell, FieldGroup, Field, inputStyle } from '@/components/forms/FormShell'
 import { GPSCapture, RatingSlider } from '@/components/forms/GPSCapture'
+import { audit } from '@/lib/audit/log-action'
 
 const STRUCTURAL_ELEMENTS = [
   { key: 'walls', label: 'Walls / Facades' },
@@ -58,7 +59,7 @@ export default function HeritageForm() {
     const sb = createClient()
     const { data: { user } } = await sb.auth.getUser()
     if (!user) { setSubmitError('Not logged in'); setLoading(false); return }
-    const { error } = await sb.from('heritage_assessments').insert({
+    const { data: inserted, error } = await sb.from('heritage_assessments').insert({
       site_id, assessor_id: user.id, assessor_name: assessorName.trim(),
       overall_condition: overallRating,
       element_ratings: elementRatings,
@@ -66,8 +67,9 @@ export default function HeritageForm() {
       narrative_notes: narrativeNotes || null,
       gps_lat: parseFloat(gpsLat), gps_lng: parseFloat(gpsLng),
       is_offline_sync: false, assessed_at: new Date().toISOString(),
-    })
+    }).select('id').single()
     if (error) { setSubmitError(error.message); setLoading(false); return }
+    await audit.formSubmit('heritage_assessments', inserted?.id ?? '', 'Heritage Assessment')
     setSuccess(true); setLoading(false)
     setSiteId(''); setAssessorName(''); setOverallRating(0); setElementRatings({})
     setSelectedIssues([]); setNarrativeNotes(''); setGpsLat(''); setGpsLng('')

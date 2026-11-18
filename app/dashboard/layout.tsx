@@ -3,6 +3,8 @@ import { Sidebar }          from '@/components/nav/sidebar'
 import { ThemeToggle }      from '@/components/theme-toggle'
 import type { UserRole }    from '@/lib/supabase/client'
 
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

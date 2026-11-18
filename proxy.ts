@@ -34,6 +34,7 @@ const SKIP_PATHS = [
   "/health",
   "/api/health",
   "/api/cw-auth",
+  "/api/auth",
   "/marker-icon",
   "/marker-shadow",
   "/layers",
@@ -118,6 +119,7 @@ async function handleSupabaseAuth(
       cookies: {
         getAll() { return request.cookies.getAll(); },
         setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           response = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
@@ -157,12 +159,23 @@ async function handleSupabaseAuth(
   if (!user && isProtected) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
-    return NextResponse.redirect(url);
+    const redirectRes = NextResponse.redirect(url);
+    redirectRes.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    return redirectRes;
   }
   if (user && isLoginPage) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+    const role = profile?.role as UserRole | undefined;
+    const home = role && role in ROLE_HOME ? ROLE_HOME[role] : "/dashboard/operational";
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard/operational";
-    return NextResponse.redirect(url);
+    url.pathname = home;
+    const redirectRes = NextResponse.redirect(url);
+    redirectRes.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    return redirectRes;
   }
   return supabaseResponse;
 }

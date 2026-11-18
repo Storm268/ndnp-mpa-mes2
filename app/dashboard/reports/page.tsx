@@ -117,7 +117,7 @@ export default function ReportsPage() {
           .order('start_time', { ascending: false })
         doc = generatePatrolReport((data ?? []) as Record<string,unknown>[], range)
         doc.save(`NDNP-Patrol-Report-${startDate}-${endDate}.pdf`)
-        await audit.reportDownloaded('Patrol Operations', { start: startDate, end: endDate })
+        await audit.reportDownloaded('Patrol Operations', range)
 
       } else if (reportId === 'wildlife') {
         const { data } = await sb.from('citizen_science_reports')
@@ -126,6 +126,7 @@ export default function ReportsPage() {
           .order('created_at', { ascending: false })
         doc = generateWildlifeReport((data ?? []) as Record<string,unknown>[], range)
         doc.save(`NDNP-Wildlife-Report-${startDate}-${endDate}.pdf`)
+        await audit.reportDownloaded('Wildlife & CS Reports', range)
 
       } else if (reportId === 'heritage') {
         const [assResult, sitesResult, maintResult] = await Promise.all([
@@ -140,6 +141,7 @@ export default function ReportsPage() {
           range
         )
         doc.save(`NDNP-Heritage-Report-${startDate}-${endDate}.pdf`)
+        await audit.reportDownloaded('Heritage Inspections', range)
 
       } else if (reportId === 'water_quality') {
         const { data } = await sb.from('water_quality')
@@ -148,6 +150,7 @@ export default function ReportsPage() {
           .order('sampled_at', { ascending: false })
         doc = generateWaterQualityReport((data ?? []) as Record<string,unknown>[], range)
         doc.save(`NDNP-WaterQuality-Report-${startDate}-${endDate}.pdf`)
+        await audit.reportDownloaded('Water Quality', range)
       }
     } catch (err) {
       console.error('PDF generation failed:', err)

@@ -1,29 +1,62 @@
 'use client'
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { createClient, ROLE_HOME, type UserRole } from '@/lib/supabase/client'
+import { clearClientAuthArtifacts } from '@/lib/supabase/auth-helpers'
+import Link from 'next/link'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { audit } from '@/lib/audit/log-action'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const router = useRouter()
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError(null)
     const supabase = createClient()
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
+
+    // Clear any residual session/cookies/SW cache from a previous account before signing in
+    try {
+      await supabase.auth.signOut({ scope: 'local' })
+    } catch {}
+    await clearClientAuthArtifacts()
+    try {
+      await fetch('/api/auth/signout', {
+        method: 'POST',
+        cache: 'no-store',
+        credentials: 'same-origin',
+      })
+    } catch {}
+
+    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
     if (authError) {
       setError(authError.message)
       setLoading(false)
-    } else {
-      router.push('/')
-      router.refresh()
+      return
     }
+
+    // Resolve destination from the newly authenticated user's profile and perform a full hard navigation
+    // so Next.js Server Components & Client Router Cache never render a stale session.
+    let destination = '/'
+    try {
+      const userId = data.user?.id
+      if (userId) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .single()
+        if (profile?.role && profile.role in ROLE_HOME) {
+          destination = ROLE_HOME[profile.role as UserRole]
+        }
+      }
+    } catch {}
+
+    await audit.login('password')
+    window.location.replace(destination)
   }
 
   return (
@@ -49,7 +82,8 @@ export default function LoginPage() {
       {/* Login form */}
       <form onSubmit={handleLogin} style={{ width: '100%', maxWidth: '380px' }}>
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '28px 24px' }}>
-          <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)', marginBottom: '20px' }}>Staff Sign In</h2>
+          <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)', marginBottom: '4px' }}>Citizen &amp; Staff Sign In</h2>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '18px' }}>Sign in to access the Citizen Portal or Park Operations.</p>
 
           {error && (
             <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '7px', padding: '10px 14px', marginBottom: '16px', fontSize: '0.8rem', color: '#fca5a5' }}>
@@ -89,9 +123,17 @@ export default function LoginPage() {
           </button>
         </div>
 
-        <p style={{ textAlign: 'center', marginTop: '16px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-          Staff accounts are provisioned by your System Administrator.
-        </p>
+        <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '0.76rem', color: 'var(--text-muted)', lineHeight: 1.7 }}>
+          <div>
+            New citizen?{' '}
+            <Link href="/register" style={{ color: 'var(--teal)', fontWeight: 700, textDecoration: 'none' }}>
+              Create a citizen account
+            </Link>
+          </div>
+          <div style={{ fontSize: '0.7rem', marginTop: '4px' }}>
+            Staff accounts are provisioned by your System Administrator.
+          </div>
+        </div>
       </form>
     </div>
   )

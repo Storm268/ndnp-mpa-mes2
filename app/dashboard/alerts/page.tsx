@@ -93,9 +93,10 @@ export default function AlertsPage() {
     setActing(id)
     const sb = createClient()
     const { data: { user } } = await sb.auth.getUser()
+    const existing = alerts.find(a => a.id === id)?.recipients ?? {}
     await sb.from('alerts').update({
       is_read: true,
-      recipients: { acknowledged_at: new Date().toISOString(), acknowledged_by: user?.id ?? 'unknown' }
+      recipients: { ...existing, acknowledged_at: new Date().toISOString(), acknowledged_by: user?.id ?? 'unknown' }
     }).eq('id', id)
     await audit.alertAcknowledged(id, alerts.find(a => a.id === id)?.title ?? 'Alert')
     setFlash({ id, type: 'ack' })
@@ -107,13 +108,24 @@ export default function AlertsPage() {
   async function resolve(id: string) {
     setActing(id)
     const sb = createClient()
-    const { data: { user } } = await sb.auth.getUser()
-    const existing = alerts.find(a => a.id === id)?.recipients ?? {}
-    await sb.from('alerts').update({
-      is_read: true,
-      recipients: { ...existing, resolved_at: new Date().toISOString(), resolved_by: user?.id ?? 'unknown' }
-    }).eq('id', id)
-    await audit.alertResolved(id, alerts.find(a => a.id === id)?.title ?? 'Alert')
+    const { data: { session } } = await sb.auth.getSession()
+    const res = await fetch('/api/alerts/resolve', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ id }),
+    })
+    if (!res.ok) {
+      const { data: { user } } = await sb.auth.getUser()
+      const existing = alerts.find(a => a.id === id)?.recipients ?? {}
+      await sb.from('alerts').update({
+        is_read: true,
+        recipients: { ...existing, resolved_at: new Date().toISOString(), resolved_by: user?.id ?? 'unknown' }
+      }).eq('id', id)
+      await audit.alertResolved(id, alerts.find(a => a.id === id)?.title ?? 'Alert')
+    }
     setFlash({ id, type: 'res' })
     setTimeout(() => setFlash(null), 2000)
     setActing(null)
@@ -214,9 +226,12 @@ export default function AlertsPage() {
           const status = getStatus(a)
           const isActing = acting === a.id
           const isFlash = flash?.id === a.id
-          const sev = a.recipients && typeof a.recipients === 'object' && 'severity' in a.recipients
-            ? (a.recipients as Record<string,unknown>).severity as number
+          const recObj = a.recipients && typeof a.recipients === 'object' ? (a.recipients as Record<string, unknown>) : null
+          const sev = recObj && 'severity' in recObj
+            ? Number(recObj.severity)
             : a.severity
+          const gpsLat = typeof a.gps_lat === 'number' ? a.gps_lat : (recObj && typeof recObj.gps_lat === 'number' ? recObj.gps_lat : null)
+          const gpsLng = typeof a.gps_lng === 'number' ? a.gps_lng : (recObj && typeof recObj.gps_lng === 'number' ? recObj.gps_lng : null)
 
           return (
             <div key={a.id}
@@ -240,7 +255,7 @@ export default function AlertsPage() {
                     <div style={{ flex:1 }}>
                       <div style={{ display:'flex', alignItems:'center', gap:'7px', flexWrap:'wrap', marginBottom:'3px' }}>
                         <span style={{ fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase', padding:'1px 7px', borderRadius:'3px', background:`${cfg.color}15`, border:`1px solid ${cfg.color}30`, color:cfg.color }}>{cfg.label}</span>
-                        {sev && <span style={{ fontSize:'0.65rem', fontWeight:700, padding:'1px 6px', borderRadius:'3px', background:'rgba(239,68,68,0.12)', border:'1px solid rgba(239,68,68,0.3)', color:'#ef4444' }}>Severity {sev}/5</span>}
+                        {sev ? <span style={{ fontSize:'0.65rem', fontWeight:700, padding:'1px 6px', borderRadius:'3px', background:'rgba(239,68,68,0.12)', border:'1px solid rgba(239,68,68,0.3)', color:'#ef4444' }}>Severity {sev}/5</span> : null}
                         {status === 'new'          && <span style={{ fontSize:'0.6rem', fontWeight:700, color:'#ef4444', background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', padding:'1px 6px', borderRadius:'3px' }}>NEW</span>}
                         {status === 'acknowledged' && <span style={{ fontSize:'0.6rem', fontWeight:700, color:'#f59e0b', background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.3)', padding:'1px 6px', borderRadius:'3px' }}>ACK</span>}
                         {status === 'resolved'     && <span style={{ fontSize:'0.6rem', fontWeight:700, color:'#22c55e', background:'rgba(34,197,94,0.1)',  border:'1px solid rgba(34,197,94,0.3)',  padding:'1px 6px', borderRadius:'3px' }}>RESOLVED</span>}
@@ -258,10 +273,10 @@ export default function AlertsPage() {
 
                   {/* Meta info */}
                   <div style={{ display:'flex', gap:'12px', marginTop:'8px', marginBottom:'10px', flexWrap:'wrap' }}>
-                    {a.gps_lat && a.gps_lng && (
+                    {gpsLat !== null && gpsLng !== null && (
                       <span style={{ fontSize:'0.68rem', color:'var(--text-muted)', display:'flex', alignItems:'center', gap:'4px' }}>
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg>
-                        {(a.gps_lat as number).toFixed(4)}°N, {(a.gps_lng as number).toFixed(4)}°W
+                        {gpsLat.toFixed(4)}°N, {gpsLng.toFixed(4)}°W
                       </span>
                     )}
                     {a.related_table && a.related_table !== '__resolved__' && (

@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { ThemeToggle } from '@/components/theme-toggle'
 import PWAInstallButton from '@/components/pwa/PWAInstallButton'
 
+export const dynamic = 'force-dynamic'
+
 export default async function RootPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -44,8 +46,8 @@ export default async function RootPage() {
           <Link href="/register" style={{ padding: '8px 16px', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text)', fontSize: '13px', fontWeight: '600', textDecoration: 'none', background: 'var(--surface2)' }}>
             Register
           </Link>
-          <Link href="/login" style={{ padding: '8px 16px', borderRadius: '8px', color: 'var(--text-dim)', fontSize: '13px', fontWeight: '500', textDecoration: 'none' }}>
-            Staff Login
+          <Link href="/login" style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '13px', fontWeight: '600', textDecoration: 'none', background: 'var(--surface)' }}>
+            Citizen &amp; Staff Login
           </Link>
         </div>
       </nav>
@@ -208,9 +210,10 @@ export default async function RootPage() {
             <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Quick Links</div>
             <div style={{ fontSize: '14px', lineHeight: '2' }}>
               <div><Link href="/dashboard/citizen" style={{ color: 'var(--teal)', textDecoration: 'none', fontWeight: 600 }}>Citizen Portal</Link></div>
+              <div><Link href="/dashboard/citizen?tab=reports" style={{ color: 'var(--teal)', textDecoration: 'none', fontWeight: 600 }}>Check Report Status</Link></div>
               <div><Link href="/report" style={{ color: '#f87171', textDecoration: 'none' }}>Report an Incident</Link></div>
               <div><Link href="/register" style={{ color: 'var(--text-dim)', textDecoration: 'none' }}>Citizen Registration</Link></div>
-              <div><Link href="/login" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>Staff Portal Login</Link></div>
+              <div><Link href="/login" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>Citizen &amp; Staff Login</Link></div>
             </div>
           </div>
         </div>

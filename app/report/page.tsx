@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
@@ -21,6 +21,13 @@ const REPORT_TYPES = [
 const SEV_LABEL = ['', 'Low — Observe only', 'Moderate — Monitor', 'Significant — Investigate', 'High — Urgent', 'Critical — Emergency']
 const SEV_COLOR = ['', '#10b981', '#84cc16', '#f59e0b', '#f97316', '#ef4444']
 
+interface SignedInReporter {
+  id: string
+  full_name: string
+  email: string
+  phone: string
+}
+
 export default function ReportPage() {
   const [loading,   setLoading]   = useState(false)
   const [error,     setError]     = useState('')
@@ -30,6 +37,9 @@ export default function ReportPage() {
   const [photoUrls, setPhotoUrls] = useState<string[]>([])    // uploaded URLs
   const [photoBlobs, setPhotoBlobs] = useState<string[]>([])  // base64 for offline
   const [location, setLocation]   = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null })
+  const [signedInUser, setSignedInUser] = useState<SignedInReporter | null>(null)
+  const [authChecked, setAuthChecked] = useState(false)
+  const [includeAccountInfo, setIncludeAccountInfo] = useState(true)
 
   const [form, setForm] = useState({
     report_type: '', title: '', description: '',
@@ -37,6 +47,41 @@ export default function ReportPage() {
     contact_name: '', contact_email: '', contact_phone: '',
   })
   const update = (k: string, v: string | number) => setForm(f => ({ ...f, [k]: v }))
+
+  useEffect(() => {
+    async function loadSignedInUser() {
+      try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, email, phone')
+          .eq('id', user.id)
+          .maybeSingle()
+
+        const info: SignedInReporter = {
+          id: user.id,
+          full_name: profile?.full_name || (user.user_metadata?.full_name as string) || '',
+          email: profile?.email || user.email || '',
+          phone: profile?.phone || (user.user_metadata?.phone as string) || '',
+        }
+        setSignedInUser(info)
+        setForm(f => ({
+          ...f,
+          contact_name: info.full_name,
+          contact_email: info.email,
+          contact_phone: info.phone,
+        }))
+      } catch {
+        // Leave as anonymous if auth lookup fails
+      } finally {
+        setAuthChecked(true)
+      }
+    }
+    loadSignedInUser()
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -48,7 +93,20 @@ export default function ReportPage() {
 
     // Check if user is logged in
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const [{ data: { user } }, { data: { session } }] = await Promise.all([
+      supabase.auth.getUser(),
+      supabase.auth.getSession(),
+    ])
+    const activeUserId = user?.id || signedInUser?.id || null
+    if (user && !signedInUser) {
+      setSignedInUser({
+        id: user.id,
+        full_name: (user.user_metadata?.full_name as string) || '',
+        email: user.email || '',
+        phone: (user.user_metadata?.phone as string) || '',
+      })
+    }
+    const shouldLinkAccount = Boolean(activeUserId && includeAccountInfo)
 
     const payload: Record<string, unknown> = {
       report_type:          form.report_type,
@@ -59,12 +117,13 @@ export default function ReportPage() {
       gps_lat:              location.lat ?? 17.0058,
       gps_lng:              location.lng ?? -61.7641,
       severity:             form.severity,
-      contact_name:         form.contact_name  || null,
-      contact_email:        form.contact_email || null,
-      contact_phone:        form.contact_phone || null,
+      contact_name:         shouldLinkAccount ? (signedInUser?.full_name || form.contact_name || null) : (signedInUser ? null : (form.contact_name || null)),
+      contact_email:        shouldLinkAccount ? (signedInUser?.email || user?.email || form.contact_email || null) : (signedInUser ? null : (form.contact_email || null)),
+      contact_phone:        shouldLinkAccount ? (signedInUser?.phone || form.contact_phone || null) : (signedInUser ? null : (form.contact_phone || null)),
       photo_urls:           photoUrls.length > 0 ? photoUrls : [],
       reference_id:         ref,
-      reporter_id:          user?.id || null,
+      reporter_id:          shouldLinkAccount ? activeUserId : null,
+      include_account_info: shouldLinkAccount,
     }
 
     // ── OFFLINE: save to IndexedDB queue ───────────────────────────────────
@@ -90,7 +149,10 @@ export default function ReportPage() {
     try {
       const res = await fetch('/api/reports/submit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify(payload),
       })
       const result = await res.json()
@@ -98,6 +160,15 @@ export default function ReportPage() {
         setError(`Submission failed: ${result.error || 'Server error occurred'}`)
         setLoading(false)
         return
+      }
+      const submittedId = result.id as string | undefined
+      if (submittedId && typeof window !== 'undefined') {
+        try {
+          const raw = localStorage.getItem('ndnp_citizen_report_ids')
+          const existing: string[] = raw ? JSON.parse(raw) : []
+          const next = [submittedId, ...existing.filter((x) => x !== submittedId)].slice(0, 50)
+          localStorage.setItem('ndnp_citizen_report_ids', JSON.stringify(next))
+        } catch {}
       }
       setRefId(result.reference_id || ref)
       setSubmitted(true)
@@ -121,15 +192,29 @@ export default function ReportPage() {
           <div style={{ position:'absolute', top:0, right:0 }}>
             <ThemeToggle />
           </div>
-          <Link href="/" style={{ display:'inline-flex', alignItems:'center', gap:'8px', textDecoration:'none', marginBottom:'16px' }}>
-            <span style={{ fontSize:'13px', color:'var(--text-muted)' }}>← Back to Home</span>
+          <Link href={signedInUser ? '/dashboard/citizen' : '/'} style={{ display:'inline-flex', alignItems:'center', gap:'8px', textDecoration:'none', marginBottom:'16px' }}>
+            <span style={{ fontSize:'13px', color:'var(--text-muted)' }}>{signedInUser ? '← Back to Citizen Portal' : '← Back to Home'}</span>
           </Link>
           <br />
-          <div style={{ display:'inline-flex', alignItems:'center', gap:'6px', padding:'5px 12px', borderRadius:'20px', background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.25)', marginBottom:'14px' }}>
-            <span style={{ fontSize:'12px', color:'#f87171', fontWeight:'600' }}>ANONYMOUS REPORTING</span>
-          </div>
-          <h1 style={{ fontSize:'24px', fontWeight:'800', color:'var(--text)', marginBottom:'6px' }}>Submit an Incident Report</h1>
-          <p style={{ fontSize:'13px', color:'var(--text-muted)' }}>No account required — reviewed within 24 hours.</p>
+          {signedInUser && includeAccountInfo ? (
+            <>
+              <div style={{ display:'inline-flex', alignItems:'center', gap:'6px', padding:'5px 12px', borderRadius:'20px', background:'rgba(0,188,212,0.1)', border:'1px solid rgba(0,188,212,0.3)', marginBottom:'14px' }}>
+                <span style={{ fontSize:'12px', color:'var(--teal)', fontWeight:'600' }}>SIGNED-IN REPORTING · TRACKABLE</span>
+              </div>
+              <h1 style={{ fontSize:'24px', fontWeight:'800', color:'var(--text)', marginBottom:'6px' }}>Submit an Incident Report</h1>
+              <p style={{ fontSize:'13px', color:'var(--text-muted)' }}>
+                Submitting as <strong style={{ color:'var(--text)' }}>{signedInUser.full_name || signedInUser.email}</strong> — automatically linked to your account for live status tracking.
+              </p>
+            </>
+          ) : (
+            <>
+              <div style={{ display:'inline-flex', alignItems:'center', gap:'6px', padding:'5px 12px', borderRadius:'20px', background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.25)', marginBottom:'14px' }}>
+                <span style={{ fontSize:'12px', color:'#f87171', fontWeight:'600' }}>ANONYMOUS REPORTING</span>
+              </div>
+              <h1 style={{ fontSize:'24px', fontWeight:'800', color:'var(--text)', marginBottom:'6px' }}>Submit an Incident Report</h1>
+              <p style={{ fontSize:'13px', color:'var(--text-muted)' }}>No account required — reviewed within 24 hours.</p>
+            </>
+          )}
         </div>
 
         {submitted ? (
@@ -151,7 +236,9 @@ export default function ReportPage() {
             <p style={{ fontSize:'13px', color:'var(--text-muted)', marginBottom:'16px' }}>
               {savedOffline
                 ? 'Your device is offline. The report is safely stored and will sync automatically when connectivity returns.'
-                : 'Thank you for helping protect the marine park.'}
+                : signedInUser && includeAccountInfo
+                  ? 'Your report is linked to your account. You can track ranger review updates anytime.'
+                  : 'Thank you for helping protect the marine park.'}
             </p>
             <div style={{ background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:'10px', padding:'12px', marginBottom:'20px' }}>
               <div style={{ fontSize:'11px', color:'var(--text-muted)', marginBottom:'3px', textTransform:'uppercase', letterSpacing:'0.5px' }}>Reference ID</div>
@@ -163,8 +250,15 @@ export default function ReportPage() {
               </div>
             )}
             <div style={{ display:'flex', gap:'10px', justifyContent:'center', flexWrap:'wrap' }}>
-              <Link href="/" style={{ padding:'9px 18px', border:'1px solid var(--border)', borderRadius:'8px', color:'var(--text-dim)', fontSize:'13px', fontWeight:'600', textDecoration:'none' }}>Back to Home</Link>
-              <Link href="/register" style={{ padding:'9px 18px', background:'rgba(0,188,212,0.15)', border:'1px solid rgba(0,188,212,0.3)', borderRadius:'8px', color:'#00bcd4', fontSize:'13px', fontWeight:'600', textDecoration:'none' }}>Create Account to Track</Link>
+              <Link href="/dashboard/citizen?tab=reports" style={{ padding:'9px 18px', background:'linear-gradient(135deg, #00bcd4, #0077a8)', borderRadius:'8px', color:'#ffffff', fontSize:'13px', fontWeight:'700', textDecoration:'none' }}>
+                {signedInUser && includeAccountInfo ? 'Track in My Reports' : 'Check Report Status'}
+              </Link>
+              <Link href={signedInUser ? '/dashboard/citizen' : '/'} style={{ padding:'9px 18px', border:'1px solid var(--border)', borderRadius:'8px', color:'var(--text-dim)', fontSize:'13px', fontWeight:'600', textDecoration:'none' }}>
+                {signedInUser ? 'Back to Portal' : 'Back to Home'}
+              </Link>
+              {authChecked && !signedInUser && (
+                <Link href="/register" style={{ padding:'9px 18px', background:'rgba(0,188,212,0.15)', border:'1px solid rgba(0,188,212,0.3)', borderRadius:'8px', color:'#00bcd4', fontSize:'13px', fontWeight:'600', textDecoration:'none' }}>Create Account to Track</Link>
+              )}
             </div>
           </div>
         ) : (
@@ -251,26 +345,76 @@ export default function ReportPage() {
               />
             </div>
 
-            {/* Optional contact */}
-            <div style={{ marginBottom:'20px', padding:'14px', background:'var(--surface2)', borderRadius:'10px', border:'1px solid var(--border)' }}>
-              <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:'8px' }}>Contact Info <span style={{ fontWeight:400, textTransform:'none', letterSpacing:0, color:'var(--text-muted)' }}>(optional)</span></div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
-                <input style={inputStyle} placeholder="Name" value={form.contact_name} onChange={e => update('contact_name', e.target.value)} />
-                <input style={inputStyle} placeholder="Phone" value={form.contact_phone} onChange={e => update('contact_phone', e.target.value)} />
-                <div style={{ gridColumn:'1/-1' }}>
-                  <input type="email" style={inputStyle} placeholder="Email" value={form.contact_email} onChange={e => update('contact_email', e.target.value)} />
+            {/* Contact / Reporter Info */}
+            {signedInUser ? (
+              <div style={{ marginBottom:'20px', padding:'14px', background:'var(--surface2)', borderRadius:'10px', border: includeAccountInfo ? '1px solid rgba(0,188,212,0.35)' : '1px solid var(--border)' }}>
+                <label style={{ display:'flex', alignItems:'center', gap:'10px', cursor:'pointer', marginBottom: includeAccountInfo ? '10px' : '0' }}>
+                  <input
+                    type="checkbox"
+                    checked={includeAccountInfo}
+                    onChange={e => setIncludeAccountInfo(e.target.checked)}
+                    style={{ width:'16px', height:'16px', accentColor:'#00bcd4', cursor:'pointer' }}
+                  />
+                  <div>
+                    <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text)', textTransform:'uppercase', letterSpacing:'0.5px' }}>
+                      Include my account information to track this report
+                    </div>
+                    <div style={{ fontSize:'11px', color:'var(--text-muted)', marginTop:'2px' }}>
+                      {includeAccountInfo
+                        ? 'Your profile contact details will be attached automatically so you can track status in My Reports.'
+                        : 'Unchecked — this report will be submitted anonymously without linking your account.'}
+                    </div>
+                  </div>
+                </label>
+
+                {includeAccountInfo && (
+                  <div style={{ padding:'10px 12px', borderRadius:'8px', background:'var(--surface)', border:'1px solid var(--border)', display:'flex', flexWrap:'wrap', gap:'12px', alignItems:'center', justifyContent:'space-between' }}>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:'14px', fontSize:'12px', color:'var(--text-dim)' }}>
+                      {signedInUser.full_name && (
+                        <span><strong style={{ color:'var(--text)' }}>Name:</strong> {signedInUser.full_name}</span>
+                      )}
+                      {signedInUser.email && (
+                        <span><strong style={{ color:'var(--text)' }}>Email:</strong> {signedInUser.email}</span>
+                      )}
+                      {signedInUser.phone && (
+                        <span><strong style={{ color:'var(--text)' }}>Phone:</strong> {signedInUser.phone}</span>
+                      )}
+                    </div>
+                    <span style={{ fontSize:'10px', fontWeight:700, color:'var(--teal)', textTransform:'uppercase', letterSpacing:'0.04em' }}>
+                      Auto-filled from profile
+                    </span>
+                  </div>
+                )}
+              </div>
+            ) : authChecked ? (
+              <div style={{ marginBottom:'20px', padding:'14px', background:'var(--surface2)', borderRadius:'10px', border:'1px solid var(--border)' }}>
+                <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:'8px' }}>Contact Info <span style={{ fontWeight:400, textTransform:'none', letterSpacing:0, color:'var(--text-muted)' }}>(optional)</span></div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
+                  <input style={inputStyle} placeholder="Name" value={form.contact_name} onChange={e => update('contact_name', e.target.value)} />
+                  <input style={inputStyle} placeholder="Phone" value={form.contact_phone} onChange={e => update('contact_phone', e.target.value)} />
+                  <div style={{ gridColumn:'1/-1' }}>
+                    <input type="email" style={inputStyle} placeholder="Email" value={form.contact_email} onChange={e => update('contact_email', e.target.value)} />
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : null}
 
             <button type="submit" disabled={loading}
               style={{ width:'100%', padding:'13px', background: loading ? 'rgba(239,68,68,0.4)' : 'linear-gradient(135deg,#ef4444,#dc2626)', border:'none', borderRadius:'10px', color:'#fff', fontSize:'15px', fontWeight:'700', cursor: loading ? 'not-allowed' : 'pointer', fontFamily:'inherit' }}>
               {loading ? 'Saving…' : (typeof window !== 'undefined' && !navigator.onLine ? 'Save for Later (Offline)' : 'Submit Report')}
             </button>
 
-            <p style={{ textAlign:'center', marginTop:'12px', fontSize:'12px', color:'#3d6b84' }}>
-              Want to track your reports?{' '}
-              <Link href="/register" style={{ color:'#00bcd4', textDecoration:'none' }}>Create a citizen account</Link>
+            <p style={{ textAlign:'center', marginTop:'12px', fontSize:'12px', color:'var(--text-muted)' }}>
+              Already submitted a report?{' '}
+              <Link href="/dashboard/citizen?tab=reports" style={{ color:'#00bcd4', textDecoration:'none', fontWeight:600 }}>Check report status</Link>
+              {authChecked && !signedInUser && (
+                <>
+                  {' · '}
+                  <Link href="/login" style={{ color:'#00bcd4', textDecoration:'none', fontWeight:600 }}>Sign In</Link>
+                  {' · '}
+                  <Link href="/register" style={{ color:'#00bcd4', textDecoration:'none' }}>Create a citizen account</Link>
+                </>
+              )}
             </p>
           </form>
         )}

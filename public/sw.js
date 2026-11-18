@@ -1,19 +1,17 @@
-// NDNP MPA-MES Service Worker v6
+// NDNP MPA-MES Service Worker v7
 // • Comprehensive Offline Caching (App shell, Citizen Portal, Map tiles, Species & Heritage guides)
 // • Background Sync for queued incident & wildlife reports
+// • Strictly Network-Only for Auth, APIs, Supabase, and Next.js RSC payloads to prevent cross-account stale sessions
 
-const CACHE_VERSION = 'v6'
+const CACHE_VERSION = 'v7'
 const STATIC_CACHE  = `ndnp-static-${CACHE_VERSION}`
 const MAP_CACHE     = `ndnp-map-${CACHE_VERSION}`
 const API_CACHE     = `ndnp-api-${CACHE_VERSION}`
 
-// Critical App Shell: pre-cached immediately upon SW install
+// Critical Public Offline Assets & Shell: pre-cached immediately upon SW install
 const APP_SHELL = [
-  '/',
-  '/dashboard/citizen',
   '/citizen',
   '/report',
-  '/register',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-maskable-192.png',
@@ -27,6 +25,9 @@ const APP_SHELL = [
   '/layers.png',
   '/layers-2x.png',
 ]
+
+// Public offline-fallback HTML routes (protected staff/admin routes are never cached)
+const OFFLINE_CACHEABLE_PAGES = new Set(['/citizen', '/report'])
 
 // Core satellite map tiles covering Nelson's Dockyard, English Harbour, and Falmouth Harbour (Zooms 13-15)
 const CORE_PARK_MAP_TILES = [
@@ -55,13 +56,15 @@ self.addEventListener('install', (event) => {
   self.skipWaiting()
   event.waitUntil(
     Promise.all([
-      // 1. App Shell
+      // 1. App Shell (only cache non-redirected 200 basic responses)
       caches.open(STATIC_CACHE).then((cache) => {
         return Promise.allSettled(
           APP_SHELL.map((url) =>
             fetch(url, { cache: 'no-cache' })
               .then((res) => {
-                if (res && res.ok) return cache.put(url, res)
+                if (res && res.ok && !res.redirected && res.type === 'basic') {
+                  return cache.put(url, res)
+                }
               })
               .catch((err) => console.warn('[SW] Pre-cache skip:', url, err))
           )
@@ -109,7 +112,7 @@ self.addEventListener('sync', (event) => {
   }
 })
 
-// ── Fetch: Offline-First & Network-First routing ────────────────────────────
+// ── Fetch: Strict Network-Only for Auth/RSC/API, Offline-First for Assets ────
 self.addEventListener('fetch', (event) => {
   const { request } = event
   const url = new URL(request.url)
@@ -117,7 +120,7 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return
   if (url.protocol === 'chrome-extension:' || url.protocol === 'data:') return
 
-  // 1. GIS & Map tiles (Esri, OpenStreetMap, Carto, Stamen): Cache First with SVG fallback
+  // 1. GIS & Map tiles (Esri, OpenStreetMap, Carto): Cache First with SVG fallback
   if (
     url.hostname.includes('arcgisonline.com') ||
     url.hostname.includes('tile.openstreetmap.org') ||
@@ -127,14 +130,40 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // 2. Next.js static assets & chunks (scripts, styles, fonts):
+  // 2. Supabase Auth / REST / Storage & local /api/* routes: STRICTLY Network Only (never cache auth/user data)
+  if (url.hostname.includes('supabase.co') || url.pathname.startsWith('/api/')) {
+    event.respondWith(
+      fetch(request, { cache: 'no-store' }).catch(() => {
+        return new Response(JSON.stringify({ error: 'Network unavailable (offline mode)' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      })
+    )
+    return
+  }
+
+  // 3. Next.js RSC / App Router navigation & prefetch payloads: STRICTLY Network Only
+  // Never serve stale RSC payloads via stale-while-revalidate, which would show the previous user's session.
+  const isNextRscOrData =
+    url.searchParams.has('_rsc') ||
+    request.headers.get('RSC') === '1' ||
+    request.headers.get('Next-Router-Prefetch') === '1' ||
+    request.headers.has('Next-Router-State-Tree') ||
+    url.pathname.startsWith('/_next/data/')
+
+  if (isNextRscOrData) {
+    event.respondWith(fetch(request, { cache: 'no-store' }))
+    return
+  }
+
+  // 4. Next.js static hashed assets & chunks (scripts, styles, fonts):
   // Cache First with background network revalidation for fast & reliable offline home screen launches
   if (url.pathname.startsWith('/_next/static/')) {
     event.respondWith(
       caches.open(STATIC_CACHE).then(async (cache) => {
         const cached = await cache.match(request)
         if (cached) {
-          // Revalidate in background to keep assets fresh across deployments
           fetch(request).then((networkRes) => {
             if (networkRes && networkRes.ok) cache.put(request, networkRes)
           }).catch(() => {})
@@ -148,7 +177,6 @@ self.addEventListener('fetch', (event) => {
           }
           return fresh
         } catch {
-          // If offline and chunk not yet cached: return valid JS/CSS rather than an error page
           if (url.pathname.endsWith('.js')) {
             return new Response('/* offline chunk placeholder */', {
               status: 200,
@@ -168,7 +196,7 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // 3. Other Next.js runtime paths (e.g. data or HMR)
+  // 5. Other Next.js runtime paths (e.g. image optimizer)
   if (url.pathname.startsWith('/_next/')) {
     event.respondWith(
       fetch(request).catch(async () => {
@@ -179,26 +207,20 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // 4. Static icons & images: Cache First
+  // 6. Static icons & images: Cache First
   if (url.pathname.startsWith('/icons/') || url.pathname.endsWith('.png') || url.pathname.endsWith('.jpg') || url.pathname.endsWith('.svg')) {
     event.respondWith(cacheFirst(STATIC_CACHE, request))
     return
   }
 
-  // 5. Supabase REST API: Network First
-  if (url.hostname.includes('supabase.co')) {
-    event.respondWith(networkFirst(API_CACHE, request))
-    return
-  }
-
-  // 4. HTML Page Navigations: Network First with cached fallback
+  // 7. HTML Page Navigations: Always hit live server (no-store); only fall back to cached public shell or offline page on network failure
   if (request.mode === 'navigate' || request.headers.get('Accept')?.includes('text/html')) {
     event.respondWith(networkFirstPage(STATIC_CACHE, request))
     return
   }
 
-  // 5. All other GET requests (images, styles, data): Stale-While-Revalidate
-  event.respondWith(staleWhileRevalidate(STATIC_CACHE, request))
+  // 8. Remaining static resources (e.g. manifest.json): Network First without stale session leakage
+  event.respondWith(networkFirstAsset(STATIC_CACHE, request))
 })
 
 // ── Caching Helpers ──────────────────────────────────────────────────────────
@@ -214,8 +236,7 @@ async function cacheFirstMapTile(cacheName, request) {
       cache.put(request, response.clone())
     }
     return response
-  } catch (err) {
-    // If offline and tile was not cached: return fallback marine bathymetric SVG tile
+  } catch {
     return new Response(
       `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
         <defs>
@@ -257,72 +278,47 @@ async function networkFirstPage(cacheName, request) {
   const url = new URL(request.url)
 
   try {
-    const response = await fetch(request)
-    if (response && response.ok) {
-      cache.put(request, response.clone())
+    const response = await fetch(request, { cache: 'no-store' })
+    // Only cache strictly public offline-capable routes if not redirected
+    if (
+      response &&
+      response.ok &&
+      response.status === 200 &&
+      !response.redirected &&
+      response.type === 'basic' &&
+      OFFLINE_CACHEABLE_PAGES.has(url.pathname)
+    ) {
       cache.put(url.pathname, response.clone())
     }
     return response
-  } catch (err) {
-    // 1. Try exact match
-    const cached = (await cache.match(request)) || (await cache.match(url.pathname))
-    if (cached) return cached
+  } catch {
+    // Offline fallback only
+    if (OFFLINE_CACHEABLE_PAGES.has(url.pathname)) {
+      const cached = await cache.match(url.pathname)
+      if (cached) return cached
+    }
 
-    // 2. If navigating to citizen page specifically, try '/dashboard/citizen' or '/citizen'
     if (url.pathname.includes('citizen')) {
-      const citizenCached = (await cache.match('/dashboard/citizen')) || (await cache.match('/citizen'))
+      const citizenCached = await cache.match('/citizen')
       if (citizenCached) return citizenCached
     }
 
-    // 3. Try root shell or dashboard citizen
-    const rootCached = (await cache.match('/')) || (await cache.match('/dashboard/citizen'))
-    if (rootCached) return rootCached
-
-    // 4. Try any cached HTML page in cache
-    const keys = await cache.keys()
-    for (const k of keys) {
-      if (k.url.endsWith('/') || k.url.includes('/dashboard/citizen') || k.url.includes('/citizen')) {
-        const fallback = await cache.match(k)
-        if (fallback) return fallback
-      }
-    }
-
-    // 5. Fallback offline recovery page
     return offlineHtmlResponse()
   }
 }
 
-async function networkFirst(cacheName, request) {
+async function networkFirstAsset(cacheName, request) {
   const cache = await caches.open(cacheName)
   try {
-    const response = await fetch(request)
-    if (response && response.ok) {
+    const response = await fetch(request, { cache: 'no-store' })
+    if (response && response.ok && !response.redirected && response.type === 'basic') {
       cache.put(request, response.clone())
     }
     return response
   } catch {
     const cached = await cache.match(request)
-    return cached ?? new Response(JSON.stringify({ error: 'Network unavailable (offline mode)' }), {
-      status: 503,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return cached ?? new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } })
   }
-}
-
-async function staleWhileRevalidate(cacheName, request) {
-  const cache = await caches.open(cacheName)
-  const cached = await cache.match(request)
-
-  const freshPromise = fetch(request)
-    .then((response) => {
-      if (response && response.ok) {
-        cache.put(request, response.clone())
-      }
-      return response
-    })
-    .catch(() => null)
-
-  return cached || (await freshPromise) || new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } })
 }
 
 function offlineHtmlResponse() {
@@ -388,7 +384,7 @@ function offlineHtmlResponse() {
     <h1>Nelson's Dockyard National Park</h1>
     <p>You are currently operating off-grid without an active internet connection. You can still access cached park maps, species guides, and record offline incident reports.</p>
     <div class="btn-group">
-      <a class="btn btn-primary" href="/dashboard/citizen">Open Citizen Dashboard & Map</a>
+      <a class="btn btn-primary" href="/citizen">Open Citizen Portal & Map</a>
       <a class="btn btn-secondary" href="/report">Submit Offline Incident Report</a>
     </div>
   </div>
@@ -398,8 +394,34 @@ function offlineHtmlResponse() {
   )
 }
 
-// ── Message: Debugging & status reporting ─────────────────────────────────────
+// ── Message: Debugging, status reporting & auth cache clearing ────────────────
 self.addEventListener('message', (event) => {
+  if (event.data?.type === 'CLEAR_AUTH_CACHES') {
+    event.waitUntil(
+      Promise.all([
+        caches.delete(API_CACHE),
+        caches.open(STATIC_CACHE).then(async (cache) => {
+          const keys = await cache.keys()
+          await Promise.all(
+            keys.map((req) => {
+              const pathname = new URL(req.url).pathname
+              const isStaticAsset =
+                pathname.startsWith('/_next/static/') ||
+                pathname.startsWith('/icons/') ||
+                pathname === '/manifest.json' ||
+                /\.(png|jpg|jpeg|svg|webp|ico|css|js|woff2?)$/i.test(pathname)
+              if (!isStaticAsset) {
+                return cache.delete(req)
+              }
+              return Promise.resolve(false)
+            })
+          )
+        }),
+      ])
+    )
+    return
+  }
+
   if (event.data?.type === 'GET_SW_STATUS') {
     Promise.all([
       caches.open(STATIC_CACHE).then((c) => c.keys()),

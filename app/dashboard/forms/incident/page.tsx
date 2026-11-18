@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { FormShell, FieldGroup, Field, inputStyle, selectStyle } from '@/components/forms/FormShell'
 import { GPSCapture } from '@/components/forms/GPSCapture'
+import { audit } from '@/lib/audit/log-action'
 
 const INCIDENT_TYPES = [
   'Illegal fishing / poaching','Coral damage / anchor strike','Oil / fuel spill',
@@ -35,55 +36,77 @@ export default function IncidentForm() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!validate()) return
-    setLoading(true); setSubmitError(null); setSuccess(false)
+    setLoading(true); setSubmitError(null); setSuccess(false); setAlertSent(false)
     const sb = createClient()
     const { data: { user } } = await sb.auth.getUser()
-    const { error } = await sb.from('citizen_science_reports').insert({
-      reporter_id: user?.id ?? null,
-      report_type: 'environmental_incident',
-      incident_type: incidentType,
-      severity,
-      description: description || null,
-      gps_lat: parseFloat(gpsLat), gps_lng: parseFloat(gpsLng),
-      validation_status: 'pending',
-      is_offline_sync: false,
-    })
+    const latNum = parseFloat(gpsLat)
+    const lngNum = parseFloat(gpsLng)
+    const { data: inserted, error } = await sb
+      .from('citizen_science_reports')
+      .insert({
+        reporter_id: user?.id ?? null,
+        report_type: 'environmental_incident',
+        incident_type: incidentType,
+        severity,
+        description: description || null,
+        gps_lat: latNum,
+        gps_lng: lngNum,
+        validation_status: 'pending',
+        is_offline_sync: false,
+      })
+      .select('id')
+      .single()
+
     if (error) { setSubmitError(error.message); setLoading(false); return }
+
     const wasHighSeverity = severity >= 4
-    if (wasHighSeverity) {
-      // Insert alert record for duty manager
-      try {
-        await sb.from('alerts').insert({
-          alert_type: 'severity_high',
-          title: `High-Severity Incident: ${incidentType}`,
-          message: `A severity ${severity} environmental incident has been reported at GPS ${gpsLat}, ${gpsLng}. Immediate attention required.`,
-          triggered_by: user?.id ?? null,
-          channel: 'in_app',
-          recipients: [],
-        })
-      } catch { /* non-blocking alert */ }
-      setAlertSent(true)
-    }
+    // Dispatch alert for ALL environmental incident types (severity 4-5 as urgent severity_high, 1-3 as patrol_incident)
+    try {
+      const alertRes = await fetch('/api/alerts/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          alert_type: wasHighSeverity ? 'severity_high' : 'patrol_incident',
+          title: wasHighSeverity
+            ? `High-Severity Incident: ${incidentType}`
+            : `Incident Reported: ${incidentType}`,
+          message: wasHighSeverity
+            ? `A severity ${severity} ${incidentType} incident has been reported at GPS ${gpsLat}, ${gpsLng}. Immediate attention required.`
+            : `A severity ${severity} ${incidentType} incident has been reported at GPS ${gpsLat}, ${gpsLng}.`,
+          severity,
+          incident_type: incidentType,
+          gps_lat: latNum,
+          gps_lng: lngNum,
+          related_record_id: inserted?.id ?? null,
+          related_table: 'citizen_science_reports',
+        }),
+      })
+      if (alertRes.ok) {
+        setAlertSent(true)
+      }
+    } catch { /* non-blocking alert */ }
+
+    await audit.formSubmit('citizen_science_reports', inserted?.id ?? '', `Environmental Incident (${incidentType})`)
     setSuccess(true); setLoading(false)
     setIncidentType(''); setSeverity(0); setDescription(''); setGpsLat(''); setGpsLng('')
   }
 
   return (
-    <FormShell title="Environmental Incident" subtitle="Report an environmental incident or threat. Severity 4-5 triggers an immediate alert to the duty manager." frId="FR-FORM-08" onSubmit={onSubmit} loading={loading} success={success} error={submitError} submitLabel="Report Incident">
+    <FormShell title="Environmental Incident" subtitle="Report an environmental incident or threat. Alerts notify park operations across all incident types (Severity 4-5 marked urgent)." frId="FR-FORM-08" onSubmit={onSubmit} loading={loading} success={success} error={submitError} submitLabel="Report Incident">
       {/* High severity warning */}
       {severity >= 4 && (
         <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" style={{ flexShrink: 0 }}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4m0 4h.01"/></svg>
           <div>
             <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#ef4444', marginBottom: '1px' }}>High-Severity Incident</div>
-            <div style={{ fontSize: '0.72rem', color: '#fca5a5' }}>Submitting this report will automatically alert the duty park manager for immediate response.</div>
+            <div style={{ fontSize: '0.72rem', color: '#fca5a5' }}>Submitting this report will automatically send a high-priority alert to the duty park manager for immediate response.</div>
           </div>
         </div>
       )}
 
       {alertSent && success && (
         <div style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.3)', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', fontSize: '0.78rem', color: '#fed7aa' }}>
-          Alert sent to duty manager. Emergency response protocol activated.
+          Incident alert dispatched to park operations &amp; duty manager.
         </div>
       )}
 

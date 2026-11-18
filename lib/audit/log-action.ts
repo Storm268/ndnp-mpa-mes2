@@ -64,11 +64,31 @@ export interface LogActionOptions {
  */
 export async function logAction(opts: LogActionOptions): Promise<void> {
   try {
+    const userAgent =
+      typeof window !== 'undefined' ? navigator.userAgent.slice(0, 200) : null
+
+    if (typeof window !== 'undefined') {
+      const res = await fetch('/api/audit/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        cache: 'no-store',
+        body: JSON.stringify({
+          action: opts.action,
+          tableName: opts.tableName ?? null,
+          recordId: opts.recordId ?? null,
+          description: opts.description ?? null,
+          metadata: opts.metadata ?? {},
+          userAgent,
+        }),
+      })
+      if (res.ok) return
+    }
+
     const sb = createClient()
     const { data: { user } } = await sb.auth.getUser()
     if (!user) return
 
-    // Fetch profile for role (non-blocking — use cached minimal query)
     const { data: profile } = await sb
       .from('profiles')
       .select('role')
@@ -81,12 +101,12 @@ export async function logAction(opts: LogActionOptions): Promise<void> {
       user_role:   profile?.role ?? null,
       action_type: opts.action,
       table_name:  opts.tableName ?? null,
-      record_id:   opts.recordId  ?? null,
+      record_id:   opts.recordId || null,
       after_value: {
         description: opts.description ?? null,
         ...opts.metadata,
       },
-      user_agent: typeof window !== 'undefined' ? navigator.userAgent.slice(0, 200) : null,
+      user_agent: userAgent,
     })
   } catch {
     // Audit failures are silent — never block the user action
@@ -98,16 +118,19 @@ export async function logAction(opts: LogActionOptions): Promise<void> {
  */
 export const audit = {
   formSubmit: (tableName: string, recordId: string, label: string) =>
-    logAction({ action: 'create', tableName, recordId, description: `Form submitted: ${label}` }),
+    logAction({ action: 'create', tableName, recordId, description: `Form submitted: ${label}`, metadata: { event_type: 'form_submit', form_label: label } }),
 
   alertAcknowledged: (alertId: string, alertTitle: string) =>
-    logAction({ action: 'update', tableName: 'alerts', recordId: alertId, description: `Alert acknowledged: ${alertTitle}` }),
+    logAction({ action: 'update', tableName: 'alerts', recordId: alertId, description: `Alert acknowledged: ${alertTitle}`, metadata: { event_type: 'alert_acknowledged' } }),
 
   alertResolved: (alertId: string, alertTitle: string) =>
-    logAction({ action: 'update', tableName: 'alerts', recordId: alertId, description: `Alert resolved: ${alertTitle}`, metadata: { status: 'resolved' } }),
+    logAction({ action: 'update', tableName: 'alerts', recordId: alertId, description: `Alert resolved: ${alertTitle}`, metadata: { event_type: 'alert_resolved', status: 'resolved' } }),
 
   reportDownloaded: (reportType: string, dateRange: { start: string; end: string }) =>
-    logAction({ action: 'create', tableName: 'reports', description: `PDF downloaded: ${reportType}`, metadata: { report_type: reportType, period_start: dateRange.start, period_end: dateRange.end } }),
+    logAction({ action: 'create', tableName: 'reports', description: `PDF downloaded: ${reportType}`, metadata: { event_type: 'report_downloaded', report_type: reportType, period_start: dateRange.start, period_end: dateRange.end } }),
+
+  dataExported: (tableName: string, description: string, metadata?: Record<string, unknown>) =>
+    logAction({ action: 'create', tableName, description, metadata: { event_type: 'data_export', ...metadata } }),
 
   csValidation: (reportId: string, decision: 'approved' | 'rejected', notes?: string) =>
     logAction({ action: 'validation_decision', tableName: 'citizen_science_reports', recordId: reportId, description: `CS report ${decision}`, metadata: { decision, notes } }),

@@ -2,13 +2,12 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { clearClientAuthArtifacts } from '@/lib/supabase/auth-helpers'
 import Link from 'next/link'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { ShieldCheck, UserCheck, AlertCircle } from 'lucide-react'
 
 export default function RegisterPage() {
-  const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -72,9 +71,16 @@ export default function RegisterPage() {
         return
       }
 
-      // 2. Automatically authenticate the newly registered citizen session
+      // 2. Clear any prior session and automatically authenticate the newly registered citizen
       try {
         const supabase = createClient()
+        await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+        await clearClientAuthArtifacts()
+        await fetch('/api/auth/signout', {
+          method: 'POST',
+          cache: 'no-store',
+          credentials: 'same-origin',
+        }).catch(() => {})
         await supabase.auth.signInWithPassword({
           email: form.email,
           password: form.password,
@@ -86,10 +92,9 @@ export default function RegisterPage() {
       setSuccess(true)
       setLoading(false)
 
-      // 3. Redirect to the citizen dashboard
+      // 3. Hard redirect to the citizen dashboard so the new session loads cleanly
       setTimeout(() => {
-        router.push('/dashboard/citizen')
-        router.refresh()
+        window.location.replace('/dashboard/citizen')
       }, 1500)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Network error during registration.'

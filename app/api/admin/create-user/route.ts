@@ -9,26 +9,30 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-    if (profile?.role !== 'system_admin') {
-      return NextResponse.json({ error: 'Forbidden — system_admin only' }, { status: 403 })
-    }
-
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!serviceKey) {
       return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured on server' }, { status: 500 })
+    }
+
+    const adminClient = createSupabaseAdmin(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      serviceKey
+    )
+
+    const { data: profile } = await adminClient
+      .from('profiles')
+      .select('role, email')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.role !== 'system_admin') {
+      return NextResponse.json({ error: 'Forbidden — system_admin only' }, { status: 403 })
     }
 
     const { email, password, full_name, role, phone } = await request.json()
     if (!email || !password || !role) {
       return NextResponse.json({ error: 'email, password, and role are required' }, { status: 400 })
     }
-
-    // Create user via Supabase Admin API
-    const adminClient = createSupabaseAdmin(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceKey
-    )
 
     const { data, error } = await adminClient.auth.admin.createUser({
       email,
@@ -40,7 +44,7 @@ export async function POST(request: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
     // Upsert profile with role
-    await adminClient.from('profiles').upsert({
+    const { error: profileError } = await adminClient.from('profiles').upsert({
       id: data.user.id,
       email,
       full_name: full_name || null,
@@ -49,15 +53,30 @@ export async function POST(request: NextRequest) {
       is_active: true,
     })
 
-    // Log admin action
-    await supabase.from('audit_log').insert({
-      user_id: user.id,
-      action: 'admin.create_user',
-      table_name: 'profiles',
-      record_id: data.user.id,
-      new_data: { email, role, full_name },
-      ip_address: request.headers.get('x-forwarded-for') || null,
-    })
+    if (profileError) {
+      return NextResponse.json({ error: profileError.message }, { status: 500 })
+    }
+
+    // Log admin action (non-blocking)
+    try {
+      await adminClient.from('audit_log').insert({
+        user_id: user.id,
+        user_email: user.email ?? profile?.email ?? null,
+        user_role: profile.role,
+        action_type: 'user_created',
+        table_name: 'profiles',
+        record_id: data.user.id,
+        after_value: {
+          email,
+          role,
+          full_name: full_name || null,
+          description: `Created user ${email} (${role})`,
+        },
+        ip_address: request.headers.get('x-forwarded-for') || null,
+      })
+    } catch {
+      // Non-blocking audit log failure
+    }
 
     return NextResponse.json({ success: true, user_id: data.user.id })
   } catch (err) {

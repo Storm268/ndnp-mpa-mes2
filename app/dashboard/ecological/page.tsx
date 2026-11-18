@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 
+export const dynamic = 'force-dynamic'
+
 function CoralBar({ pct, label, sublabel }: { pct: number; label: string; sublabel?: string }) {
   const color = pct >= 60 ? '#22c55e' : pct >= 35 ? '#f59e0b' : '#ef4444'
   return (
@@ -42,8 +44,8 @@ export default async function EcologicalDashboard() {
       .select('station_id, ph, do_mgl, temperature_c, salinity_ppt, turbidity_ntu, compliance_status, sampled_at, monitoring_stations(name, station_code)')
       .order('sampled_at', { ascending: false }).limit(12),
     supabase.from('fish_surveys')
-      .select('station_id, species_entries, surveyed_at, monitoring_stations(name, station_code)')
-      .order('surveyed_at', { ascending: false }).limit(8),
+      .select('id, station_id, species_entries, transect_len_m, transect_width_m, depth_m, notes, surveyed_at, monitoring_stations(name, station_code)')
+      .order('surveyed_at', { ascending: false }).limit(20),
   ])
 
   // Latest coral per station
@@ -64,12 +66,13 @@ export default async function EcologicalDashboard() {
   const wqArr = Array.from(latestWQ.values())
   const failCount = wqArr.filter(r => r.compliance_status === 'fail').length
   const warnCount = wqArr.filter(r => r.compliance_status === 'warning').length
+  const fishArr = (fish ?? []) as Record<string, unknown>[]
 
   return (
     <div style={{ padding: '28px 32px', maxWidth: '1200px' }}>
       <div style={{ marginBottom: '28px' }}>
         <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.02em', marginBottom: '4px' }}>Ecological Status</h1>
-        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>FR-DASH-02 · Real-time coral health indicators & water quality compliance</p>
+        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>FR-DASH-02 · Real-time coral health indicators, fish transects &amp; water quality compliance</p>
       </div>
 
       {/* Metrics row */}
@@ -79,7 +82,7 @@ export default async function EcologicalDashboard() {
           { val: bleachingCount, label: 'Bleaching Alerts', color: bleachingCount > 0 ? '#ef4444' : '#22c55e', sub: '>20% bleaching' },
           { val: failCount, label: 'WQ Exceedances', color: failCount > 0 ? '#ef4444' : '#22c55e', sub: 'Parameter failures' },
           { val: warnCount, label: 'WQ Warnings', color: warnCount > 0 ? '#f59e0b' : '#22c55e', sub: 'Borderline readings' },
-          { val: (fish ?? []).length, label: 'Fish Surveys', color: 'var(--sky)', sub: 'Recent records' },
+          { val: fishArr.length, label: 'Fish Surveys', color: 'var(--sky)', sub: 'Recent records' },
         ].map(m => (
           <div key={m.label} className="card" style={{ padding: '18px 20px' }}>
             <div style={{ fontSize: '2rem', fontWeight: 800, color: m.color, lineHeight: 1, letterSpacing: '-0.03em', marginBottom: '5px' }}>{m.val}</div>
@@ -149,6 +152,76 @@ export default async function EcologicalDashboard() {
                   <td style={{ padding: '10px 14px', color: 'var(--text)' }}>{fmt(r.salinity_ppt)} ppt</td>
                   <td style={{ padding: '10px 14px' }}><WQStatusBadge status={typeof r.compliance_status === 'string' ? r.compliance_status : null} /></td>
                   <td style={{ padding: '10px 14px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>{date}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Fish Surveys */}
+      <h2 style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        Fish Surveys — Recent Transect Records
+        <span style={{ fontSize: '0.6rem', color: 'var(--sky)', fontWeight: 700, letterSpacing: '0.06em' }}>• FR-FORM-02</span>
+      </h2>
+      <div className="card" style={{ overflow: 'hidden', marginBottom: '24px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid var(--border)' }}>
+              {['Station', 'Species Observed', 'Total Count', 'Transect / Depth', 'Surveyed'].map(h => (
+                <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {fishArr.length === 0 ? (
+              <tr><td colSpan={5} style={{ padding: '16px 14px', color: 'var(--text-muted)', fontSize: '0.82rem' }}>No fish surveys recorded yet. Submit FR-FORM-02.</td></tr>
+            ) : fishArr.map((f: Record<string, unknown>, i: number) => {
+              const ms = f.monitoring_stations as Record<string, string> | null
+              const entries = Array.isArray(f.species_entries)
+                ? (f.species_entries as Array<{ species?: string; count?: number; size_class?: string }>)
+                : []
+              const totalCount = entries.reduce((sum, en) => sum + (typeof en.count === 'number' ? en.count : Number(en.count) || 0), 0)
+              const date = typeof f.surveyed_at === 'string'
+                ? new Date(f.surveyed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                : '—'
+              const transectStr = f.transect_len_m && f.transect_width_m
+                ? `${f.transect_len_m}m × ${f.transect_width_m}m`
+                : '—'
+              const depthStr = typeof f.depth_m === 'number' ? `${f.depth_m}m depth` : ''
+
+              return (
+                <tr key={String(f.id ?? i)} style={{ borderBottom: '1px solid var(--border)', verticalAlign: 'top' }}>
+                  <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--sky)', letterSpacing: '0.03em' }}>{ms?.station_code ?? '—'}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text)' }}>{ms?.name ?? 'Unknown Station'}</div>
+                  </td>
+                  <td style={{ padding: '10px 14px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                      {entries.slice(0, 4).map((en, idx) => (
+                        <span key={idx} style={{ fontSize: '0.7rem', padding: '2px 7px', borderRadius: '4px', background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text)' }}>
+                          <i>{en.species || 'Species'}</i> · <b>{en.count ?? 0}</b>{en.size_class ? ` (${en.size_class})` : ''}
+                        </span>
+                      ))}
+                      {entries.length > 4 && (
+                        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', padding: '2px 4px' }}>
+                          +{entries.length - 4} more
+                        </span>
+                      )}
+                    </div>
+                    {typeof f.notes === 'string' && f.notes && (
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>{f.notes}</div>
+                    )}
+                  </td>
+                  <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--sky)' }}>{totalCount}</div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{entries.length} {entries.length === 1 ? 'entry' : 'entries'}</div>
+                  </td>
+                  <td style={{ padding: '10px 14px', fontSize: '0.74rem', color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>
+                    <div>{transectStr}</div>
+                    {depthStr && <div style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>{depthStr}</div>}
+                  </td>
+                  <td style={{ padding: '10px 14px', fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{date}</td>
                 </tr>
               )
             })}

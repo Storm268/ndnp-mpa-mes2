@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { FormShell, FieldGroup, Field, inputStyle, selectStyle } from '@/components/forms/FormShell'
 import { GPSCapture } from '@/components/forms/GPSCapture'
+import { audit } from '@/lib/audit/log-action'
 
 const SPECIES_TYPES = [
   'Sea Turtle (Green)','Sea Turtle (Hawksbill)','Sea Turtle (Leatherback)','Sea Turtle (Loggerhead)',
@@ -40,7 +41,7 @@ export default function WildlifeForm() {
     setLoading(true); setSubmitError(null); setSuccess(false)
     const sb = createClient()
     const { data: { user } } = await sb.auth.getUser()
-    const { error } = await sb.from('citizen_science_reports').insert({
+    const { data: inserted, error } = await sb.from('citizen_science_reports').insert({
       reporter_id: user?.id ?? null,
       report_type: 'wildlife_sighting',
       species_type: speciesType,
@@ -50,8 +51,9 @@ export default function WildlifeForm() {
       description: notes || null,
       validation_status: 'pending',
       is_offline_sync: false,
-    })
+    }).select('id').single()
     if (error) { setSubmitError(error.message); setLoading(false); return }
+    await audit.formSubmit('citizen_science_reports', inserted?.id ?? '', `Wildlife Sighting (${speciesType})`)
     setSuccess(true); setLoading(false)
     setSpeciesType(''); setSpeciesCount('1'); setBehavior(''); setGpsLat(''); setGpsLng(''); setNotes('')
   }

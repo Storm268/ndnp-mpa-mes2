@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { FormShell, FieldGroup, Field, inputStyle, selectStyle } from '@/components/forms/FormShell'
 import { GPSCapture } from '@/components/forms/GPSCapture'
+import { audit } from '@/lib/audit/log-action'
 
 const CARIBBEAN_SPECIES = [
   'Acanthurus bahianus','Acanthurus chirurgus','Acanthurus coeruleus','Aulostomus maculatus',
@@ -61,7 +62,7 @@ export default function FishForm() {
     const { data: { user } } = await sb.auth.getUser()
     if (!user) { setSubmitError('Not logged in'); setLoading(false); return }
     const species_entries = entries.filter(en => en.species && en.count).map(en => ({ species: en.species, count: parseInt(en.count), size_class: en.size_class }))
-    const { error } = await sb.from('fish_surveys').insert({
+    const { data: inserted, error } = await sb.from('fish_surveys').insert({
       station_id, surveyor_id: user.id,
       species_entries,
       transect_len_m: transectLen ? parseFloat(transectLen) : null,
@@ -69,8 +70,9 @@ export default function FishForm() {
       depth_m: depth ? parseFloat(depth) : null,
       gps_lat: parseFloat(gpsLat), gps_lng: parseFloat(gpsLng),
       notes: notes || null, is_offline_sync: false, surveyed_at: new Date().toISOString(),
-    })
+    }).select('id').single()
     if (error) { setSubmitError(error.message); setLoading(false); return }
+    await audit.formSubmit('fish_surveys', inserted?.id ?? '', 'Fish Survey')
     setSuccess(true); setLoading(false)
     setStationId(''); setEntries([{ species: '', count: '', size_class: '5-15cm' }])
     setGpsLat(''); setGpsLng(''); setTransectLen(''); setTransectW(''); setDepth(''); setNotes('')

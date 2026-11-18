@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 
 const PARK_CENTER_LAT = 17.0058
@@ -26,6 +27,22 @@ export async function POST(request: NextRequest) {
     }
 
     const admin = createSupabaseAdmin(supabaseUrl, serviceRoleKey)
+    const serverSupabase = await createServerClient()
+    let {
+      data: { user: sessionUser },
+    } = await serverSupabase.auth.getUser()
+
+    if (!sessionUser) {
+      const authHeader = request.headers.get('authorization') || ''
+      const token = authHeader.toLowerCase().startsWith('bearer ')
+        ? authHeader.slice(7).trim()
+        : ''
+      if (token) {
+        const { data: tokenData } = await admin.auth.getUser(token)
+        if (tokenData?.user) sessionUser = tokenData.user
+      }
+    }
+
     const body = await request.json()
 
     const rawReportType = String(body.report_type || '').trim().toLowerCase()
@@ -60,12 +77,46 @@ export async function POST(request: NextRequest) {
     // Photos
     const photo_urls = Array.isArray(body.photo_urls) ? body.photo_urls.filter((u: unknown) => typeof u === 'string') : []
 
+    // Determine reporter_id & contact info for signed-in users
+    const includeAccountInfo = body.include_account_info !== false
+    let reporter_id: string | null = null
+    let contactName = body.contact_name ? String(body.contact_name).trim() : ''
+    let contactEmail = body.contact_email ? String(body.contact_email).trim() : ''
+    let contactPhone = body.contact_phone ? String(body.contact_phone).trim() : ''
+
+    if (sessionUser && includeAccountInfo) {
+      reporter_id = sessionUser.id
+      const { data: profile } = await admin
+        .from('profiles')
+        .select('full_name, email, phone')
+        .eq('id', sessionUser.id)
+        .maybeSingle()
+      if (!contactName && profile?.full_name) contactName = profile.full_name
+      if (!contactEmail) contactEmail = profile?.email || sessionUser.email || ''
+      if (!contactPhone && profile?.phone) contactPhone = profile.phone
+    } else if (body.reporter_id && typeof body.reporter_id === 'string' && includeAccountInfo) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      if (uuidRegex.test(body.reporter_id)) {
+        const { data: profile } = await admin
+          .from('profiles')
+          .select('id, full_name, email, phone')
+          .eq('id', body.reporter_id)
+          .maybeSingle()
+        if (profile) {
+          reporter_id = profile.id
+          if (!contactName && profile.full_name) contactName = profile.full_name
+          if (!contactEmail && profile.email) contactEmail = profile.email
+          if (!contactPhone && profile.phone) contactPhone = profile.phone
+        }
+      }
+    }
+
     // Compile informative description
     const refId = body.reference_id || `INC-${Date.now().toString(36).toUpperCase()}`
     const title = body.title ? String(body.title).trim() : ''
     const rawDesc = body.description ? String(body.description).trim() : ''
     const locationText = body.location_text || body.location_description ? String(body.location_text || body.location_description).trim() : ''
-    const contactParts = [body.contact_name, body.contact_email, body.contact_phone].filter(Boolean).map(s => String(s).trim())
+    const contactParts = [contactName, contactEmail, contactPhone].filter(Boolean)
 
     const descSections: string[] = []
     if (title) descSections.push(`[${title}]`)
@@ -79,16 +130,6 @@ export async function POST(request: NextRequest) {
     }
 
     const description = descSections.join('\n\n')
-
-    // Reporter ID: if provided, verify or use
-    let reporter_id = body.reporter_id || null
-    if (reporter_id && typeof reporter_id === 'string') {
-      // Validate that reporter_id is a UUID or matches profiles
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-      if (!uuidRegex.test(reporter_id)) {
-        reporter_id = null
-      }
-    }
 
     const insertPayload = {
       reporter_id,
@@ -117,22 +158,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
-    // High severity alert dispatch (non-blocking)
-    if (severity && severity >= 4) {
+    // Incident alert dispatch (fires for all environmental incident types, plus high-severity priority flag)
+    if (report_type === 'environmental_incident') {
       try {
-        const typeLabel = (incident_type && INCIDENT_TYPE_MAP[incident_type]) || incident_type || 'Environmental Incident'
-        await admin.from('alerts').insert({
-          alert_type: 'severity_high',
-          title: `High-Severity Incident: ${typeLabel}`,
-          message: `A severity ${severity} environmental incident has been reported at GPS ${gps_lat.toFixed(4)}, ${gps_lng.toFixed(4)}. Reference: ${refId}. Immediate inspection required.`,
+        const formattedType =
+          (incident_type && INCIDENT_TYPE_MAP[incident_type]) ||
+          (incident_type
+            ? incident_type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
+            : 'Environmental Incident')
+        const effectiveSeverity = severity ?? 3
+        const isHighSeverity = effectiveSeverity >= 4
+
+        const { error: alertErr } = await admin.from('alerts').insert({
+          alert_type: isHighSeverity ? 'severity_high' : 'patrol_incident',
+          title: isHighSeverity
+            ? `High-Severity Incident: ${formattedType}`
+            : `Incident Reported: ${formattedType}`,
+          message: isHighSeverity
+            ? `A severity ${effectiveSeverity} ${formattedType.toLowerCase()} incident has been reported at GPS ${gps_lat.toFixed(4)}, ${gps_lng.toFixed(4)}. Reference: ${refId}. Immediate inspection required.`
+            : `A severity ${effectiveSeverity} ${formattedType.toLowerCase()} incident has been reported at GPS ${gps_lat.toFixed(4)}, ${gps_lng.toFixed(4)}. Reference: ${refId}. Ready for ranger review.`,
           triggered_by: reporter_id,
           channel: 'in_app',
           is_read: false,
+          recipients: {
+            severity: effectiveSeverity,
+            incident_type: incident_type || 'other',
+            reference_id: refId,
+            gps_lat,
+            gps_lng,
+          },
           related_record_id: data.id,
           related_table: 'citizen_science_reports',
         })
+        if (alertErr) {
+          console.error('Failed to insert alert for environmental incident:', alertErr)
+        }
       } catch (alertErr) {
-        console.warn('Failed to insert alert for high severity incident:', alertErr)
+        console.warn('Failed to insert alert for environmental incident:', alertErr)
       }
     }
 

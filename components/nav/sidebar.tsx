@@ -1,8 +1,9 @@
 'use client'
 import { PWAInstallButton } from '@/components/pwa/PWAInstallButton'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { createClient, type UserRole, ROLE_LABELS } from '@/lib/supabase/client'
+import { signOutAndRedirect } from '@/lib/supabase/auth-helpers'
 import { useState, useEffect } from 'react'
 import {
   Activity,
@@ -59,7 +60,6 @@ function AdminLink({ href, label, icon, active }: { href: string; label: string;
 
 export function Sidebar({ role, fullName }: { role: UserRole; fullName: string | null }) {
   const pathname     = usePathname()
-  const router       = useRouter()
   const [signingOut,  setSigningOut]  = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
 
@@ -79,8 +79,7 @@ export function Sidebar({ role, fullName }: { role: UserRole; fullName: string |
 
   async function handleSignOut() {
     setSigningOut(true)
-    await createClient().auth.signOut()
-    window.location.href = '/'
+    await signOutAndRedirect('/')
   }
 
   return (
@@ -105,6 +104,7 @@ export function Sidebar({ role, fullName }: { role: UserRole; fullName: string |
           <>
             <div style={{ fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', color:'var(--text-muted)', padding:'0 6px', marginBottom:'6px' }}>Citizen Stewardship</div>
             <NavLink href="/dashboard/citizen" label="Citizen Portal" icon={<Sparkles size={16} />} active={pathname.startsWith('/dashboard/citizen')} />
+            <NavLink href="/dashboard/citizen?tab=reports" label="Report Status" icon={<ClipboardList size={16} />} active={false} />
             <NavLink href="/report" label="Report Sighting / Hazard" icon={<Shield size={16} />} active={pathname.startsWith('/report')} />
           </>
         )}
@@ -114,7 +114,7 @@ export function Sidebar({ role, fullName }: { role: UserRole; fullName: string |
             <div style={{ fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', color:'var(--text-muted)', padding:'0 6px', marginBottom:'6px' }}>Dashboards</div>
             <NavLink href="/dashboard/operational" label="Operational" icon={<Activity size={16} />} active={pathname.startsWith('/dashboard/operational')} />
             {['system_admin','park_manager','scientist'].includes(role) && <NavLink href="/dashboard/ecological" label="Ecological" icon={<Compass size={16} />} active={pathname.startsWith('/dashboard/ecological')} />}
-            {['system_admin','park_manager','ranger'].includes(role) && <NavLink href="/dashboard/patrol" label="Patrol & Incidents" icon={<Shield size={16} />} active={pathname.startsWith('/dashboard/patrol')} />}
+            {['system_admin','park_manager','ranger','scientist'].includes(role) && <NavLink href="/dashboard/patrol" label="Patrol & Incidents" icon={<Shield size={16} />} active={pathname.startsWith('/dashboard/patrol')} />}
             {['system_admin','park_manager','scientist','ranger'].includes(role) && <NavLink href="/dashboard/heritage" label="Heritage Condition" icon={<Landmark size={16} />} active={pathname.startsWith('/dashboard/heritage')} />}
             <NavLink href="/dashboard/forms" label="Data Collection" icon={<ClipboardList size={16} />} active={pathname.startsWith('/dashboard/forms')} />
             <NavLink href="/dashboard/maps" label="Park Map" icon={<MapIcon size={16} />} active={pathname.startsWith('/dashboard/maps')} />
